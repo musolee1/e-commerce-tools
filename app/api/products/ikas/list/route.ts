@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         }
 
         const accessToken = await getIkasToken(
-            settings.ikas_store_name || 'swassonline',
+            settings.ikas_store_name,
             settings.ikas_client_id,
             settings.ikas_client_secret
         );

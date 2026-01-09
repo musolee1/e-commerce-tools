@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import TelegramBot from 'node-telegram-bot-api'
 import { createClient } from '@/lib/supabase/server'
 
-const DEFAULT_SITE_URL = process.env.SITE_URL || 'https://swassonline.com/'
+// Site URL is now fetched from user settings only - no default fallback
 
 interface Product {
     İsim: string
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
                 // Use user settings or fall back to environment variables
                 const BOT_TOKEN = settings?.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN
                 const CHAT_ID = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID
-                const SITE_URL = settings?.site_url || DEFAULT_SITE_URL
+                const SITE_URL = settings?.site_url
 
                 if (!BOT_TOKEN || !CHAT_ID) {
                     controller.enqueue(

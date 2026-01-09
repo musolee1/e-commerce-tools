@@ -17,13 +17,13 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState({
         telegram_bot_token: '',
         telegram_chat_id: '',
-        site_url: 'https://swassonline.com/',
+        site_url: '',
         trendyol_target_url: '',
-        trendyol_brand_slug: 'swass',
+        trendyol_brand_slug: '',
         replace_genel_markalar: false,
         ikas_client_id: '',
         ikas_client_secret: '',
-        ikas_store_name: 'swassonline',
+        ikas_store_name: '',
     })
 
     useEffect(() => {
@@ -39,13 +39,13 @@ export default function SettingsPage() {
                 setSettings({
                     telegram_bot_token: data.telegram_bot_token || '',
                     telegram_chat_id: data.telegram_chat_id || '',
-                    site_url: data.site_url || 'https://swassonline.com/',
+                    site_url: data.site_url || '',
                     trendyol_target_url: data.trendyol_target_url || '',
-                    trendyol_brand_slug: data.trendyol_brand_slug || 'swass',
+                    trendyol_brand_slug: data.trendyol_brand_slug || '',
                     replace_genel_markalar: data.replace_genel_markalar || false,
                     ikas_client_id: data.ikas_client_id || '',
                     ikas_client_secret: data.ikas_client_secret || '',
-                    ikas_store_name: data.ikas_store_name || 'swassonline',
+                    ikas_store_name: data.ikas_store_name || '',
                 })
             }
         } catch (err: any) {

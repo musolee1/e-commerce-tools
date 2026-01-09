@@ -21,18 +21,18 @@ export async function GET() {
             throw error
         }
 
-        // If no settings exist, return defaults
+        // If no settings exist, return empty values
         if (!data) {
             return NextResponse.json({
                 telegram_bot_token: null,
                 telegram_chat_id: null,
-                site_url: 'https://swassonline.com/',
+                site_url: null,
                 trendyol_target_url: null,
-                trendyol_brand_slug: 'swass',
+                trendyol_brand_slug: null,
                 replace_genel_markalar: false,
                 ikas_client_id: null,
                 ikas_client_secret: null,
-                ikas_store_name: 'swassonline',
+                ikas_store_name: null,
             })
         }
 
