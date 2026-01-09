@@ -288,7 +288,7 @@ export default function SettingsPage() {
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
-                            Ürün linklerinde kullanılacak marka adı (örn: swass)
+                            Ürün linklerinde kullanılacak marka adı (örn: markanız)
                         </p>
                     </div>
 
