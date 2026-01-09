@@ -1,0 +1,130 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET() {
+    try {
+        const supabase = await createClient()
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data, error } = await supabase
+            .from('user_settings')
+            .select('*')
+            .eq('user_id', user.id)
+            .single()
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+            throw error
+        }
+
+        // If no settings exist, return defaults
+        if (!data) {
+            return NextResponse.json({
+                telegram_bot_token: null,
+                telegram_chat_id: null,
+                site_url: 'https://swassonline.com/',
+                trendyol_target_url: null,
+                trendyol_brand_slug: 'swass',
+                replace_genel_markalar: false,
+                ikas_client_id: null,
+                ikas_client_secret: null,
+                ikas_store_name: 'swassonline',
+            })
+        }
+
+        return NextResponse.json(data)
+    } catch (error: any) {
+        console.error('Get settings error:', error)
+        return NextResponse.json(
+            { error: error.message || 'Settings alınırken hata oluştu' },
+            { status: 500 }
+        )
+    }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const supabase = await createClient()
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const body = await request.json()
+        const {
+            telegram_bot_token,
+            telegram_chat_id,
+            site_url,
+            trendyol_target_url,
+            trendyol_brand_slug,
+            replace_genel_markalar,
+            ikas_client_id,
+            ikas_client_secret,
+            ikas_store_name,
+        } = body
+
+        // Check if settings exist
+        const { data: existing } = await supabase
+            .from('user_settings')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+
+        if (existing) {
+            // Update existing settings
+            const { data, error } = await supabase
+                .from('user_settings')
+                .update({
+                    telegram_bot_token,
+                    telegram_chat_id,
+                    site_url,
+                    trendyol_target_url,
+                    trendyol_brand_slug,
+                    replace_genel_markalar,
+                    ikas_client_id,
+                    ikas_client_secret,
+                    ikas_store_name,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id)
+                .select()
+                .single()
+
+            if (error) throw error
+            return NextResponse.json(data)
+        } else {
+            // Insert new settings
+            const { data, error } = await supabase
+                .from('user_settings')
+                .insert({
+                    user_id: user.id,
+                    telegram_bot_token,
+                    telegram_chat_id,
+                    site_url,
+                    trendyol_target_url,
+                    trendyol_brand_slug,
+                    replace_genel_markalar,
+                    ikas_client_id,
+                    ikas_client_secret,
+                    ikas_store_name,
+                })
+                .select()
+                .single()
+
+            if (error) throw error
+            return NextResponse.json(data)
+        }
+    } catch (error: any) {
+        console.error('Save settings error:', error)
+        return NextResponse.json(
+            { error: error.message || 'Settings kaydedilirken hata oluştu' },
+            { status: 500 }
+        )
+    }
+}

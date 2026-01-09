@@ -1,0 +1,158 @@
+import puppeteer from 'puppeteer';
+import * as cheerio from 'cheerio';
+
+export interface TrendyolProduct {
+    name: string;
+    normalPrice: string;
+    discountedPrice: string;
+    link: string;
+}
+
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct[]> {
+    console.log('🕵️ Gizli tarayıcı başlatılıyor...');
+
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    try {
+        const page = await browser.newPage();
+
+        // Set user agent and viewport
+        await page.setUserAgent(USER_AGENT);
+        await page.setViewport({ width: 1920, height: 1080 });
+
+        console.log(`🌍 Siteye gidiliyor: ${targetUrl}`);
+
+        await page.goto(targetUrl, {
+            timeout: 60000,
+            waitUntil: 'networkidle2'
+        });
+
+        // Wait for product cards to load
+        try {
+            await page.waitForSelector('div.search-result-content', { timeout: 15000 });
+        } catch (e) {
+            console.log('⚠️ Sayfa yüklenirken zaman aşımı, devam ediliyor...');
+        }
+
+        // Scroll to load all products - IMPROVED INFINITE SCROLL
+        console.log('⏳ Tüm ürünler yükleniyor (Scroll yapılıyor)...');
+
+        let lastHeight = await page.evaluate('document.body.scrollHeight');
+        let scrollAttempts = 0;
+        let noChangeCount = 0;
+        const maxScrollAttempts = 50; // Maximum 50 scrolls
+
+        while (scrollAttempts < maxScrollAttempts) {
+            // Scroll to bottom
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+
+            // Wait longer for lazy loading (2.5 seconds)
+            await new Promise(resolve => setTimeout(resolve, 2500));
+
+            const newHeight = await page.evaluate('document.body.scrollHeight');
+
+            // Count products loaded so far
+            const currentProductCount = await page.evaluate(() => {
+                return document.querySelectorAll('a.product-card').length;
+            });
+
+            console.log(`📊 Scroll ${scrollAttempts + 1}: ${currentProductCount} ürün yüklendi`);
+
+            // Check if page stopped growing
+            if (newHeight === lastHeight) {
+                noChangeCount++;
+                // If no change for 3 consecutive attempts, we're done
+                if (noChangeCount >= 3) {
+                    console.log('✅ Tüm ürünler yüklendi (sayfa boyutu sabit kaldı)');
+                    break;
+                }
+            } else {
+                noChangeCount = 0; // Reset counter if page is still growing
+            }
+
+            lastHeight = newHeight;
+            scrollAttempts++;
+        }
+
+        console.log('✅ Sayfa sonuna ulaşıldı. HTML alınıyor...');
+
+        const content = await page.content();
+
+        // Parse with Cheerio
+        const $ = cheerio.load(content);
+        const cards = $('a.product-card');
+
+        console.log(`📦 Toplam ${cards.length} adet ürün kartı bulundu.`);
+
+        const products: TrendyolProduct[] = [];
+
+        cards.each((_, element) => {
+            try {
+                const card = $(element);
+
+                // 1. Link
+                let link = card.attr('href') || '';
+                if (link && !link.startsWith('http')) {
+                    link = 'https://www.trendyol.com' + link;
+                }
+                // ✅ CLEAN: Remove query parameters (? and after)
+                link = link.split('?')[0];
+
+                // 2. Name (Brand + Name)
+                const brand = card.find('span.product-brand').text().trim();
+                const name = card.find('span.product-name').text().trim();
+                const fullName = `${brand} ${name}`.trim();
+
+                // 3. Prices
+                let normalPrice = '-';
+                let discountedPrice = '-';
+
+                // Check for promotion price structure
+                const promoDiv = card.find('div.ty-plus-promotion-price');
+
+                if (promoDiv.length > 0) {
+                    const strikeTag = promoDiv.find('div.strikethrough-price');
+                    if (strikeTag.length > 0) {
+                        normalPrice = strikeTag.text().trim();
+                    }
+
+                    const priceValTag = promoDiv.find('span.price-value');
+                    if (priceValTag.length > 0) {
+                        discountedPrice = priceValTag.text().trim();
+                    }
+                } else {
+                    // Standard price structure
+                    const priceBox = card.find('div.prc-box-dscntd');
+                    if (priceBox.length > 0) {
+                        discountedPrice = priceBox.text().trim();
+
+                        const boxStrike = card.find('div.prc-box-orgnl');
+                        if (boxStrike.length > 0) {
+                            normalPrice = boxStrike.text().trim();
+                        }
+                    }
+                }
+
+                if (fullName && link) {
+                    products.push({
+                        name: fullName,
+                        normalPrice,
+                        discountedPrice,
+                        link
+                    });
+                }
+            } catch (e) {
+                console.error('Ürün işlenirken hata:', e);
+            }
+        });
+
+        return products;
+    } finally {
+        await browser.close();
+    }
+}
