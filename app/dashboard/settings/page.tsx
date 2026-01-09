@@ -242,7 +242,7 @@ export default function SettingsPage() {
                             type="url"
                             value={settings.site_url}
                             onChange={(e) => setSettings({ ...settings, site_url: e.target.value })}
-                            placeholder="https://swassonline.com/"
+                            placeholder="https://markanız.com/"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
@@ -267,7 +267,7 @@ export default function SettingsPage() {
                             type="url"
                             value={settings.trendyol_target_url}
                             onChange={(e) => setSettings({ ...settings, trendyol_target_url: e.target.value })}
-                            placeholder="https://www.trendyol.com/sr?mid=2457&os=1"
+                            placeholder="https://www.trendyol.com/sr"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
@@ -284,7 +284,7 @@ export default function SettingsPage() {
                             type="text"
                             value={settings.trendyol_brand_slug}
                             onChange={(e) => setSettings({ ...settings, trendyol_brand_slug: e.target.value })}
-                            placeholder="swass"
+                            placeholder="markanız"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
@@ -328,7 +328,7 @@ export default function SettingsPage() {
                             type="text"
                             value={settings.ikas_store_name}
                             onChange={(e) => setSettings({ ...settings, ikas_store_name: e.target.value })}
-                            placeholder="swassonline"
+                            placeholder="markanız"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
@@ -345,7 +345,7 @@ export default function SettingsPage() {
                             type="text"
                             value={settings.ikas_client_id}
                             onChange={(e) => setSettings({ ...settings, ikas_client_id: e.target.value })}
-                            placeholder="0a96bf47-42bd-430e-947d-f901c1712802"
+                            placeholder="0a34563-3456y5432wergh-32345"
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
@@ -362,7 +362,7 @@ export default function SettingsPage() {
                             type="password"
                             value={settings.ikas_client_secret}
                             onChange={(e) => setSettings({ ...settings, ikas_client_secret: e.target.value })}
-                            placeholder="s_ZDYQ7r..."
+                            placeholder="s_ZertdD..."
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
                         />
                         <p className="text-xs text-slate-500 mt-2">
