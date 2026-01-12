@@ -1,9 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import * as XLSX from 'exceljs';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
+
+// TR Fiyat formatını sayıya çevir (4.617,50 TL -> 4617.50)
+function parseTRPrice(value: string | number | null | undefined): number {
+    if (value === null || value === undefined || value === '' || value === '-') {
+        return 0;
+    }
+
+    // Zaten sayı ise direkt döndür
+    if (typeof value === 'number') {
+        return value;
+    }
+
+    let s = String(value).replace('TL', '').trim();
+
+    // Mantık:
+    // 1. Eğer virgül varsa: nokta binlik ayraç, virgül ondalık
+    // 2. Eğer sadece nokta varsa: nokta binlik ayraç
+    if (s.includes(',')) {
+        s = s.replace(/\./g, ''); // Binlik noktalarını sil
+        s = s.replace(',', '.'); // Ondalık virgülünü noktaya çevir
+    } else {
+        s = s.replace(/\./g, ''); // Binlik noktalarını sil
+    }
+
+    const num = parseFloat(s);
+    return isNaN(num) ? 0 : num;
+}
 
 // POST - Match ve Excel export
 export async function POST(request: NextRequest) {
@@ -15,27 +41,60 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // 1. Eşleştirme verilerini al
+        // 1. Eşleştirme verilerini al (Trendyol link ↔ İKAS barkod)
         const { data: matchingData, error: matchError } = await supabase
             .from('matching_data')
             .select('trendyol_link, ikas_barcode')
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .range(0, 9999); // Supabase varsayılan 1000 limitini aş
 
         if (matchError || !matchingData || matchingData.length === 0) {
-            return NextResponse.json({ error: 'Eşleştirme verisi bulunamadı' }, { status: 400 });
+            return NextResponse.json({ error: 'Eşleştirme verisi bulunamadı. Önce Settings sayfasından eşleştirme dosyası yükleyin.' }, { status: 400 });
         }
+
+        console.log(`📊 Eşleştirme verisi: ${matchingData.length} satır`);
 
         // 2. İKAS ürünlerini al
         const { data: ikasProducts, error: ikasError } = await supabase
             .from('ikas_products')
-            .select('product_id, variant_id, product_name, sku, barcode, normal_price, discounted_price')
-            .eq('user_id', user.id);
+            .select('product_id, variant_id, product_name, sku, barcode, normal_price, discounted_price, buy_price')
+            .eq('user_id', user.id)
+            .range(0, 9999); // Supabase varsayılan 1000 limitini aş
 
         if (ikasError || !ikasProducts || ikasProducts.length === 0) {
-            return NextResponse.json({ error: 'İKAS ürünleri bulunamadı' }, { status: 400 });
+            return NextResponse.json({ error: 'İKAS ürünleri bulunamadı. Önce Ürünler sayfasından İKAS ürünlerini çekin.' }, { status: 400 });
         }
 
-        // 3. Barkod → Product ID eşleştirmesi yap
+        console.log(`📦 İKAS ürünleri: ${ikasProducts.length} varyant`);
+
+        // 3. Trendyol ürünlerini al
+        const { data: trendyolProducts, error: trendyolError } = await supabase
+            .from('trendyol_products')
+            .select('product_name, normal_price, discounted_price, product_link')
+            .eq('user_id', user.id)
+            .range(0, 9999); // Supabase varsayılan 1000 limitini aş
+
+        if (trendyolError || !trendyolProducts || trendyolProducts.length === 0) {
+            return NextResponse.json({ error: 'Trendyol ürünleri bulunamadı. Önce Ürünler sayfasından Trendyol ürünlerini çekin.' }, { status: 400 });
+        }
+
+        console.log(`🛒 Trendyol ürünleri: ${trendyolProducts.length} ürün`);
+
+        // 4. Trendyol link → Ürün bilgileri eşleştirmesi için Map oluştur
+        const trendyolMap = new Map<string, {
+            name: string;
+            normalPrice: number;
+            discountedPrice: number;
+        }>();
+        for (const tp of trendyolProducts) {
+            trendyolMap.set(tp.product_link, {
+                name: tp.product_name || '',
+                normalPrice: parseTRPrice(tp.normal_price),
+                discountedPrice: parseTRPrice(tp.discounted_price),
+            });
+        }
+
+        // 5. Barkod → Product ID eşleştirmesi yap
         const barcodeToProductId = new Map<string, string>();
         for (const product of ikasProducts) {
             if (product.barcode) {
@@ -43,7 +102,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 4. Matching data'daki barkodlardan Product ID'leri bul
+        // 6. Matching data'daki barkodlardan Product ID'leri ve Trendyol linklerini bul
         const matchedProductIds = new Set<string>();
         const trendyolLinkByProductId = new Map<string, string>();
 
@@ -56,53 +115,63 @@ export async function POST(request: NextRequest) {
         }
 
         if (matchedProductIds.size === 0) {
-            return NextResponse.json({ error: 'Eşleşen ürün bulunamadı' }, { status: 400 });
+            return NextResponse.json({
+                error: 'Eşleşen ürün bulunamadı. Eşleştirme dosyasındaki barkodlar İKAS ürünlerinde mevcut değil.'
+            }, { status: 400 });
         }
 
-        // 5. Eşleşen Product ID'lerin TÜM varyantlarını bul
+        // 7. Eşleşen Product ID'lerin TÜM varyantlarını bul ve filtrele
         const exportData: any[] = [];
+
         for (const product of ikasProducts) {
             if (matchedProductIds.has(product.product_id)) {
-                exportData.push({
-                    trendyol_link: trendyolLinkByProductId.get(product.product_id) || '',
-                    product_id: product.product_id,
-                    variant_id: product.variant_id,
-                    product_name: product.product_name,
-                    sku: product.sku,
-                    barcode: product.barcode,
-                    normal_price: product.normal_price,
-                    discounted_price: product.discounted_price,
-                });
+                const trendyolLink = trendyolLinkByProductId.get(product.product_id) || '';
+                const trendyolData = trendyolMap.get(trendyolLink);
+
+                if (!trendyolData) continue;
+
+                const trendyolNormalPrice = trendyolData.normalPrice;
+                const trendyolDiscountedPrice = trendyolData.discountedPrice;
+                const ikasNormalPrice = Number(product.normal_price) || 0;
+                const ikasDiscountedPrice = Number(product.discounted_price) || 0;
+                const ikasBuyPrice = Number(product.buy_price) || 0;
+
+                // Yeni Fiyat: Trendyol İndirimli Fiyatın %10 indirimli hali
+                const newPrice = trendyolDiscountedPrice * 0.90;
+
+                // FİLTRE 1: Yeni Fiyat 0 TL olanları atla
+                if (newPrice === 0) continue;
+
+                // FİLTRE 2: SADECE Yeni Fiyat < İkas İndirimli Fiyat olanları tut
+                // Bu, Trendyol fiyatı İkas'tan ucuz olanları gösterir (aksiyon alınması gereken ürünler)
+                if (newPrice < ikasDiscountedPrice) {
+                    exportData.push({
+                        product_id: product.product_id,
+                        variant_id: product.variant_id,
+                        barcode: product.barcode,
+                        new_price: newPrice,
+                        ikas_normal_price: ikasNormalPrice,
+                        ikas_discounted_price: ikasDiscountedPrice,
+                        ikas_buy_price: ikasBuyPrice,
+                        trendyol_discounted_price: trendyolDiscountedPrice,
+                    });
+                }
             }
         }
 
-        // 6. Excel oluştur
-        const workbook = new XLSX.Workbook();
-        const worksheet = workbook.addWorksheet('Eşleşen Ürünler');
+        if (exportData.length === 0) {
+            return NextResponse.json({
+                error: 'Fiyat karşılaştırması sonucu aksiyon alınması gereken ürün bulunamadı. Tüm İkas fiyatları Trendyol fiyatlarından düşük veya eşit.'
+            }, { status: 400 });
+        }
 
-        worksheet.columns = [
-            { header: 'Trendyol Link', key: 'trendyol_link', width: 50 },
-            { header: 'Product ID', key: 'product_id', width: 36 },
-            { header: 'Variant ID', key: 'variant_id', width: 36 },
-            { header: 'Ürün Adı', key: 'product_name', width: 40 },
-            { header: 'SKU', key: 'sku', width: 20 },
-            { header: 'Barkod', key: 'barcode', width: 20 },
-            { header: 'Normal Fiyat', key: 'normal_price', width: 15 },
-            { header: 'İndirimli Fiyat', key: 'discounted_price', width: 15 },
-        ];
+        console.log(`✅ Eşleşen ve aksiyon gerektiren ürün sayısı: ${exportData.length}`);
 
-        exportData.forEach(row => worksheet.addRow(row));
-
-        // Header styling
-        worksheet.getRow(1).font = { bold: true };
-
-        const buffer = await workbook.xlsx.writeBuffer();
-
-        return new NextResponse(buffer, {
-            headers: {
-                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition': 'attachment; filename=eslesen_urunler.xlsx',
-            },
+        // JSON olarak döndür (popup'ta gösterilecek)
+        return NextResponse.json({
+            success: true,
+            count: exportData.length,
+            data: exportData,
         });
     } catch (error: any) {
         console.error('Match export error:', error);

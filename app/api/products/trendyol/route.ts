@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
             .from('trendyol_products')
             .select('*')
             .eq('user_id', user.id)
-            .order('scraped_at', { ascending: false });
+            .order('scraped_at', { ascending: false })
+            .range(0, 9999); // Supabase varsayılan 1000 limitini aş
 
         return NextResponse.json({
             success: true,
@@ -114,7 +115,8 @@ export async function GET(request: NextRequest) {
             .from('trendyol_products')
             .select('*')
             .eq('user_id', user.id)
-            .order('scraped_at', { ascending: false });
+            .order('scraped_at', { ascending: false })
+            .range(0, 9999); // Supabase varsayılan 1000 limitini aş
 
         if (error) {
             return NextResponse.json({ error: error.message }, { status: 500 });

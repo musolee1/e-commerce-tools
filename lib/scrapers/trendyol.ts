@@ -11,14 +11,62 @@ export interface TrendyolProduct {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// Yerel ortamda Chrome yolunu bul
+async function getChromePath(): Promise<string> {
+    const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+    if (isVercel) {
+        // Vercel/Lambda ortamında @sparticuz/chromium kullan
+        return await chromium.executablePath();
+    }
+
+    // Önce CHROME_PATH environment variable kontrol et
+    if (process.env.CHROME_PATH) {
+        return process.env.CHROME_PATH;
+    }
+
+    // Yerel ortamda Chrome yollarını dene
+    const possiblePaths = [
+        // Windows
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+        // Mac
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        // Linux
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+    ];
+
+    const fs = await import('fs');
+    for (const chromePath of possiblePaths) {
+        if (chromePath && fs.existsSync(chromePath)) {
+            return chromePath;
+        }
+    }
+
+    throw new Error('Chrome bulunamadı. Lütfen Google Chrome yükleyin veya CHROME_PATH environment variable ayarlayın.');
+}
+
 export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct[]> {
     console.log('🕵️ Gizli tarayıcı başlatılıyor...');
 
-    // Vercel serverless için @sparticuz/chromium kullan
+    const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const executablePath = await getChromePath();
+
+    console.log(`🌐 Chrome yolu: ${executablePath}`);
+
+    // Ortama göre farklı ayarlar kullan
     const browser = await puppeteer.launch({
-        args: chromium.args,
+        args: isVercel ? chromium.args : [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+        ],
         defaultViewport: { width: 1920, height: 1080 },
-        executablePath: await chromium.executablePath(),
+        executablePath,
         headless: true,
     });
 

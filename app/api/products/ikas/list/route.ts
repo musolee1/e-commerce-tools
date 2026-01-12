@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
                 .delete()
                 .eq('user_id', user.id);
 
-            // Yeni verileri ekle
+            // Yeni verileri hazırla
             const insertData = products.map(p => ({
                 user_id: user.id,
                 product_id: p.productId,
@@ -50,16 +50,26 @@ export async function POST(request: NextRequest) {
                 barcode: p.barcode,
                 normal_price: p.normalPrice,
                 discounted_price: p.discountedPrice,
+                buy_price: p.buyPrice,
                 fetched_at: new Date().toISOString(),
             }));
 
-            const { error: insertError } = await supabase
-                .from('ikas_products')
-                .insert(insertData);
+            // Batch insert - 500'lük parçalar halinde ekle (Supabase limiti için)
+            const BATCH_SIZE = 500;
+            for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
+                const batch = insertData.slice(i, i + BATCH_SIZE);
+                const { error: insertError } = await supabase
+                    .from('ikas_products')
+                    .insert(batch);
 
-            if (insertError) {
-                console.error('Insert error:', insertError);
+                if (insertError) {
+                    console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, insertError);
+                } else {
+                    console.log(`✅ Batch ${i / BATCH_SIZE + 1}: ${batch.length} kayıt eklendi`);
+                }
             }
+
+            console.log(`✅ Toplam ${insertData.length} İKAS varyantı kaydedildi`);
         }
 
         return NextResponse.json({
@@ -106,6 +116,7 @@ export async function GET(request: NextRequest) {
             barcode: p.barcode,
             normalPrice: p.normal_price,
             discountedPrice: p.discounted_price,
+            buyPrice: p.buy_price,
         }));
 
         return NextResponse.json({ products: formattedProducts });

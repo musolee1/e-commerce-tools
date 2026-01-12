@@ -12,6 +12,7 @@ export interface IkasProductFlat {
     barcode: string;
     normalPrice: number;
     discountedPrice: number;
+    buyPrice: number;
 }
 
 export async function getIkasToken(
@@ -60,6 +61,7 @@ async function fetchProducts(token: string, page: number): Promise<any> {
               priceListId
               sellPrice
               discountPrice
+              buyPrice
             }
           }
         }
@@ -99,14 +101,16 @@ export async function fetchAllIkasProducts(token: string): Promise<IkasProductFl
 
             for (const p of products) {
                 for (const v of p.variants) {
+                    const defaultPrice = v.prices?.find((pr: any) => pr.priceListId === null);
                     allData.push({
                         productId: p.id,
                         variantId: v.id,
                         productName: p.name,
                         sku: v.sku || '',
                         barcode: v.barcodeList?.[0] || '',
-                        normalPrice: v.prices?.find((pr: any) => pr.priceListId === null)?.sellPrice || 0,
-                        discountedPrice: v.prices?.find((pr: any) => pr.priceListId === null)?.discountPrice || 0,
+                        normalPrice: defaultPrice?.sellPrice || 0,
+                        discountedPrice: defaultPrice?.discountPrice || 0,
+                        buyPrice: defaultPrice?.buyPrice || 0,
                     });
                 }
             }
