@@ -164,21 +164,34 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                 let normalPrice = '-';
                 let discountedPrice = '-';
 
-                // Check for promotion price structure
+                // Check for promotion price structure (ty-plus-promotion-price)
                 const promoDiv = card.find('div.ty-plus-promotion-price');
 
                 if (promoDiv.length > 0) {
+                    // Normal price from strikethrough-price
                     const strikeTag = promoDiv.find('div.strikethrough-price');
                     if (strikeTag.length > 0) {
                         normalPrice = strikeTag.text().trim();
                     }
 
-                    const priceValTag = promoDiv.find('span.price-value');
-                    if (priceValTag.length > 0) {
-                        discountedPrice = priceValTag.text().trim();
+                    // Discounted price from discounted-price > price-value
+                    const discountedPriceDiv = promoDiv.find('div.discounted-price');
+                    if (discountedPriceDiv.length > 0) {
+                        const priceValTag = discountedPriceDiv.find('span.price-value');
+                        if (priceValTag.length > 0) {
+                            discountedPrice = priceValTag.text().trim();
+                        }
+                    }
+
+                    // Fallback: try price-value directly
+                    if (discountedPrice === '-') {
+                        const priceValTag = promoDiv.find('span.price-value');
+                        if (priceValTag.length > 0) {
+                            discountedPrice = priceValTag.text().trim();
+                        }
                     }
                 } else {
-                    // Standard price structure
+                    // Standard price structure (prc-box)
                     const priceBox = card.find('div.prc-box-dscntd');
                     if (priceBox.length > 0) {
                         discountedPrice = priceBox.text().trim();
@@ -187,6 +200,15 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                         if (boxStrike.length > 0) {
                             normalPrice = boxStrike.text().trim();
                         }
+                    }
+                }
+
+                // If still no prices, try alternative selectors
+                if (normalPrice === '-' && discountedPrice === '-') {
+                    // Try any price in the card
+                    const anyPrice = card.find('[class*="price"]').first();
+                    if (anyPrice.length > 0) {
+                        discountedPrice = anyPrice.text().trim();
                     }
                 }
 
