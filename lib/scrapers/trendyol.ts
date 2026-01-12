@@ -171,16 +171,25 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                 const promoDiv = card.find('[data-testid="ty-plus-promotion-price"]');
 
                 if (promoDiv.length > 0) {
-                    // Get discounted price from span.price-value inside div.discounted-price
-                    const priceValueSpan = promoDiv.find('div.discounted-price span.price-value');
-                    if (priceValueSpan.length > 0) {
-                        discountedPrice = priceValueSpan.text().trim();
+                    // Step 1: Find discounted-price div first
+                    const discountedPriceDiv = promoDiv.find('.discounted-price');
+                    if (discountedPriceDiv.length > 0) {
+                        // Step 2: Find price-value span inside it
+                        const priceValueSpan = discountedPriceDiv.find('.price-value');
+                        if (priceValueSpan.length > 0) {
+                            discountedPrice = priceValueSpan.text().trim();
+                        }
                     }
 
                     // Get normal price from div.strikethrough-price
-                    const strikePriceDiv = promoDiv.find('div.strikethrough-price');
+                    const strikePriceDiv = promoDiv.find('.strikethrough-price');
                     if (strikePriceDiv.length > 0) {
                         normalPrice = strikePriceDiv.text().trim();
+                    }
+
+                    // Debug for first 3 products
+                    if (products.length < 3) {
+                        console.log(`🔍 PromoDiv: discPriceDiv=${discountedPriceDiv.length}, priceVal=${discountedPriceDiv.find('.price-value').length}, strike=${strikePriceDiv.length}`);
                     }
                 }
 
