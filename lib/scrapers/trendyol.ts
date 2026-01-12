@@ -183,25 +183,43 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                 const promoDiv = card.find('[data-testid="ty-plus-promotion-price"]');
 
                 if (promoDiv.length > 0) {
-                    // Step 1: Find discounted-price div first
+                    // Get normal price from div.strikethrough-price (usually works)
+                    const strikePriceDiv = promoDiv.find('.strikethrough-price');
+                    if (strikePriceDiv.length > 0) {
+                        normalPrice = strikePriceDiv.text().trim();
+                    }
+
+                    // Get discounted price - try multiple approaches
+                    // Approach 1: Find .discounted-price > .price-value
                     const discountedPriceDiv = promoDiv.find('.discounted-price');
                     if (discountedPriceDiv.length > 0) {
-                        // Step 2: Find price-value span inside it
                         const priceValueSpan = discountedPriceDiv.find('.price-value');
                         if (priceValueSpan.length > 0) {
                             discountedPrice = priceValueSpan.text().trim();
                         }
                     }
 
-                    // Get normal price from div.strikethrough-price
-                    const strikePriceDiv = promoDiv.find('.strikethrough-price');
-                    if (strikePriceDiv.length > 0) {
-                        normalPrice = strikePriceDiv.text().trim();
+                    // Approach 2: If still no discounted price, try direct .price-value in promoDiv
+                    if (discountedPrice === '-') {
+                        const directPriceValue = promoDiv.find('.price-value');
+                        if (directPriceValue.length > 0) {
+                            discountedPrice = directPriceValue.text().trim();
+                        }
+                    }
+
+                    // Approach 3: Get all text from discounted-price div and extract price
+                    if (discountedPrice === '-' && discountedPriceDiv.length > 0) {
+                        const fullText = discountedPriceDiv.text().trim();
+                        // Extract price pattern like "1.234,56 TL" or "Sepette1.234,56 TL"
+                        const priceMatch = fullText.match(/[\d.,]+\s*TL/);
+                        if (priceMatch) {
+                            discountedPrice = priceMatch[0].trim();
+                        }
                     }
 
                     // Debug for first 3 products
                     if (products.length < 3) {
-                        console.log(`🔍 PromoDiv: discPriceDiv=${discountedPriceDiv.length}, priceVal=${discountedPriceDiv.find('.price-value').length}, strike=${strikePriceDiv.length}`);
+                        console.log(`🔍 PromoDiv: discPriceDiv=${discountedPriceDiv.length}, discPrice=${discountedPrice}, strike=${strikePriceDiv.length}`);
                     }
                 }
 
