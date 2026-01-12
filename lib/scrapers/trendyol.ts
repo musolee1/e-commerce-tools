@@ -173,21 +173,28 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                     // CASE 1: ty-plus-promotion-price structure
                     const promoDiv = card.querySelector('[data-testid="ty-plus-promotion-price"]');
                     if (promoDiv) {
-                        // Normal price from strikethrough-price
+                        // Normal price from strikethrough-price (direct text)
                         const strikeEl = promoDiv.querySelector('.strikethrough-price');
                         if (strikeEl) {
                             normalPrice = strikeEl.textContent?.trim() || '-';
                         }
 
-                        // Discounted price from price-value
-                        const priceValueEl = promoDiv.querySelector('.price-value');
-                        if (priceValueEl) {
-                            discountedPrice = priceValueEl.textContent?.trim() || '-';
+                        // Discounted price - EXACT xpath: .discounted-price > span.price-value
+                        // Structure: div.discounted-price > span.price-label + span.price-value
+                        const discountedPriceDiv = promoDiv.querySelector('.discounted-price');
+                        if (discountedPriceDiv) {
+                            // Get specifically span.price-value (second span child)
+                            const priceValueSpan = discountedPriceDiv.querySelector('span.price-value');
+                            if (priceValueSpan) {
+                                discountedPrice = priceValueSpan.textContent?.trim() || '-';
+                            }
                         }
 
-                        // Debug first 3
-                        if (index < 3) {
-                            console.log(`🔍 Ürün ${index + 1}: strikeEl=${!!strikeEl}, priceValueEl=${!!priceValueEl}`);
+                        // Debug first 5 products with detailed info
+                        if (index < 5) {
+                            const discDiv = promoDiv.querySelector('.discounted-price');
+                            const priceSpan = discDiv?.querySelector('span.price-value');
+                            console.log(`🔍 Ürün ${index + 1}: promoDiv=OK, discDiv=${!!discDiv}, priceSpan=${!!priceSpan}, value="${priceSpan?.textContent}"`);
                         }
                     }
 
