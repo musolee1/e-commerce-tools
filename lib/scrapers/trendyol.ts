@@ -86,10 +86,22 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
 
         // Wait for product cards to load
         try {
-            await page.waitForSelector('div.search-result-content', { timeout: 15000 });
+            await page.waitForSelector('div.search-result-content', { timeout: 30000 });
+            console.log('✅ Ürün kartları yüklendi');
         } catch (e) {
-            console.log('⚠️ Sayfa yüklenirken zaman aşımı, devam ediliyor...');
+            console.log('⚠️ Ürün kartları yüklenirken zaman aşımı, devam ediliyor...');
         }
+
+        // Wait for price elements to be rendered (important for Vercel)
+        try {
+            await page.waitForSelector('[data-testid="ty-plus-promotion-price"], [data-testid="single-price"]', { timeout: 15000 });
+            console.log('✅ Fiyat elementleri yüklendi');
+        } catch (e) {
+            console.log('⚠️ Fiyat elementleri henüz yüklenmedi, devam ediliyor...');
+        }
+
+        // Extra wait for JavaScript to fully render
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         // Scroll to load all products - IMPROVED INFINITE SCROLL
         console.log('⏳ Tüm ürünler yükleniyor (Scroll yapılıyor)...');
