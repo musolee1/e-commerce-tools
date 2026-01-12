@@ -160,73 +160,64 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                 const name = card.find('span.product-name').text().trim();
                 const fullName = `${brand} ${name}`.trim();
 
-                // 3. Prices
+                // 3. Prices - Extract based on exact HTML structure
                 let normalPrice = '-';
                 let discountedPrice = '-';
 
-                // Debug: Log first 3 products' HTML structure
-                if (products.length < 3) {
-                    const priceHtml = card.find('[class*="price"]').parent().html();
-                    console.log(`🔍 Ürün ${products.length + 1} fiyat HTML:`, priceHtml?.substring(0, 500));
-                }
-
-                // Check for promotion price structure (ty-plus-promotion-price)
-                const promoDiv = card.find('div.ty-plus-promotion-price');
+                // CASE 1: ty-plus-promotion-price structure (most common)
+                // Structure: div.ty-plus-promotion-price
+                //   > div.discounted-price > span.price-value (indirimli fiyat)
+                //   > div.strikethrough-price (normal fiyat)
+                const promoDiv = card.find('[data-testid="ty-plus-promotion-price"]');
 
                 if (promoDiv.length > 0) {
-                    // Normal price from strikethrough-price
-                    const strikeTag = promoDiv.find('div.strikethrough-price');
-                    if (strikeTag.length > 0) {
-                        normalPrice = strikeTag.text().trim();
+                    // Get discounted price from span.price-value inside div.discounted-price
+                    const priceValueSpan = promoDiv.find('div.discounted-price span.price-value');
+                    if (priceValueSpan.length > 0) {
+                        discountedPrice = priceValueSpan.text().trim();
                     }
 
-                    // Discounted price from discounted-price > price-value
-                    const discountedPriceDiv = promoDiv.find('div.discounted-price');
-                    if (discountedPriceDiv.length > 0) {
-                        const priceValTag = discountedPriceDiv.find('span.price-value');
-                        if (priceValTag.length > 0) {
-                            discountedPrice = priceValTag.text().trim();
-                        }
+                    // Get normal price from div.strikethrough-price
+                    const strikePriceDiv = promoDiv.find('div.strikethrough-price');
+                    if (strikePriceDiv.length > 0) {
+                        normalPrice = strikePriceDiv.text().trim();
                     }
+                }
 
-                    // Fallback: try price-value directly
-                    if (discountedPrice === '-') {
-                        const priceValTag = promoDiv.find('span.price-value');
-                        if (priceValTag.length > 0) {
-                            discountedPrice = priceValTag.text().trim();
-                        }
-                    }
-                } else {
-                    // Standard price structure (prc-box)
-                    const priceBox = card.find('div.prc-box-dscntd');
-                    if (priceBox.length > 0) {
-                        discountedPrice = priceBox.text().trim();
-
-                        const boxStrike = card.find('div.prc-box-orgnl');
-                        if (boxStrike.length > 0) {
-                            normalPrice = boxStrike.text().trim();
+                // CASE 2: single-price structure (no discount)
+                // Structure: div.single-price > div.price-section
+                if (discountedPrice === '-' && normalPrice === '-') {
+                    const singlePriceDiv = card.find('[data-testid="single-price"]');
+                    if (singlePriceDiv.length > 0) {
+                        const priceSectionDiv = singlePriceDiv.find('div.price-section');
+                        if (priceSectionDiv.length > 0) {
+                            const singlePrice = priceSectionDiv.text().trim();
+                            normalPrice = singlePrice;
+                            discountedPrice = singlePrice;
                         }
                     }
                 }
 
-                // If still no prices, try direct class selectors
-                if (normalPrice === '-' || discountedPrice === '-') {
-                    // Try strikethrough-price directly in card
-                    const directStrike = card.find('.strikethrough-price');
-                    if (directStrike.length > 0 && normalPrice === '-') {
-                        normalPrice = directStrike.text().trim();
-                    }
-
-                    // Try price-value directly in card
-                    const directPriceVal = card.find('.price-value');
-                    if (directPriceVal.length > 0 && discountedPrice === '-') {
-                        discountedPrice = directPriceVal.text().trim();
+                // CASE 3: Fallback - try class-based selectors
+                if (discountedPrice === '-') {
+                    // Try .price-value anywhere in card
+                    const priceVal = card.find('.price-value').first();
+                    if (priceVal.length > 0) {
+                        discountedPrice = priceVal.text().trim();
                     }
                 }
 
-                // Debug: Log extracted prices for first products
-                if (products.length < 3) {
-                    console.log(`💰 Ürün ${products.length + 1}: Normal=${normalPrice}, Discounted=${discountedPrice}`);
+                if (normalPrice === '-') {
+                    // Try .strikethrough-price anywhere in card
+                    const strikePrice = card.find('.strikethrough-price').first();
+                    if (strikePrice.length > 0) {
+                        normalPrice = strikePrice.text().trim();
+                    }
+                }
+
+                // Debug: Log first 5 products
+                if (products.length < 5) {
+                    console.log(`💰 Ürün ${products.length + 1}: "${fullName.substring(0, 30)}..." | Normal: ${normalPrice} | İnd: ${discountedPrice}`);
                 }
 
                 if (fullName && link) {
