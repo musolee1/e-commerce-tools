@@ -143,133 +143,103 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
             scrollAttempts++;
         }
 
-        console.log('✅ Sayfa sonuna ulaşıldı. HTML alınıyor...');
+        console.log('✅ Sayfa sonuna ulaşıldı. DOM verileri çekiliyor...');
 
-        const content = await page.content();
+        // Extract products directly from DOM using page.evaluate()
+        // This runs in the browser context with fully rendered DOM
+        const products = await page.evaluate(() => {
+            const results: Array<{ name: string, normalPrice: string, discountedPrice: string, link: string }> = [];
 
-        // Parse with Cheerio
-        const $ = cheerio.load(content);
-        const cards = $('a.product-card');
+            const cards = document.querySelectorAll('a.product-card');
 
-        console.log(`📦 Toplam ${cards.length} adet ürün kartı bulundu.`);
-
-        const products: TrendyolProduct[] = [];
-
-        cards.each((_, element) => {
-            try {
-                const card = $(element);
-
-                // 1. Link
-                let link = card.attr('href') || '';
-                if (link && !link.startsWith('http')) {
-                    link = 'https://www.trendyol.com' + link;
-                }
-                // ✅ CLEAN: Remove query parameters (? and after)
-                link = link.split('?')[0];
-
-                // 2. Name (Brand + Name)
-                const brand = card.find('span.product-brand').text().trim();
-                const name = card.find('span.product-name').text().trim();
-                const fullName = `${brand} ${name}`.trim();
-
-                // 3. Prices - Extract based on exact HTML structure
-                let normalPrice = '-';
-                let discountedPrice = '-';
-
-                // CASE 1: ty-plus-promotion-price structure (most common)
-                // Structure: div.ty-plus-promotion-price
-                //   > div.discounted-price > span.price-value (indirimli fiyat)
-                //   > div.strikethrough-price (normal fiyat)
-                const promoDiv = card.find('[data-testid="ty-plus-promotion-price"]');
-
-                if (promoDiv.length > 0) {
-                    // Get normal price from div.strikethrough-price (usually works)
-                    const strikePriceDiv = promoDiv.find('.strikethrough-price');
-                    if (strikePriceDiv.length > 0) {
-                        normalPrice = strikePriceDiv.text().trim();
+            cards.forEach((card, index) => {
+                try {
+                    // 1. Link
+                    let link = card.getAttribute('href') || '';
+                    if (link && !link.startsWith('http')) {
+                        link = 'https://www.trendyol.com' + link;
                     }
+                    link = link.split('?')[0];
 
-                    // Get discounted price - try multiple approaches
-                    // Approach 1: Find .discounted-price > .price-value
-                    const discountedPriceDiv = promoDiv.find('.discounted-price');
-                    if (discountedPriceDiv.length > 0) {
-                        const priceValueSpan = discountedPriceDiv.find('.price-value');
-                        if (priceValueSpan.length > 0) {
-                            discountedPrice = priceValueSpan.text().trim();
+                    // 2. Name
+                    const brand = card.querySelector('span.product-brand')?.textContent?.trim() || '';
+                    const name = card.querySelector('span.product-name')?.textContent?.trim() || '';
+                    const fullName = `${brand} ${name}`.trim();
+
+                    // 3. Prices
+                    let normalPrice = '-';
+                    let discountedPrice = '-';
+
+                    // CASE 1: ty-plus-promotion-price structure
+                    const promoDiv = card.querySelector('[data-testid="ty-plus-promotion-price"]');
+                    if (promoDiv) {
+                        // Normal price from strikethrough-price
+                        const strikeEl = promoDiv.querySelector('.strikethrough-price');
+                        if (strikeEl) {
+                            normalPrice = strikeEl.textContent?.trim() || '-';
+                        }
+
+                        // Discounted price from price-value
+                        const priceValueEl = promoDiv.querySelector('.price-value');
+                        if (priceValueEl) {
+                            discountedPrice = priceValueEl.textContent?.trim() || '-';
+                        }
+
+                        // Debug first 3
+                        if (index < 3) {
+                            console.log(`🔍 Ürün ${index + 1}: strikeEl=${!!strikeEl}, priceValueEl=${!!priceValueEl}`);
                         }
                     }
 
-                    // Approach 2: If still no discounted price, try direct .price-value in promoDiv
+                    // CASE 2: single-price structure
+                    if (discountedPrice === '-' && normalPrice === '-') {
+                        const singlePriceDiv = card.querySelector('[data-testid="single-price"]');
+                        if (singlePriceDiv) {
+                            const priceSectionEl = singlePriceDiv.querySelector('.price-section');
+                            if (priceSectionEl) {
+                                const singlePrice = priceSectionEl.textContent?.trim() || '-';
+                                normalPrice = singlePrice;
+                                discountedPrice = singlePrice;
+                            }
+                        }
+                    }
+
+                    // CASE 3: Fallback - try any price-related elements
                     if (discountedPrice === '-') {
-                        const directPriceValue = promoDiv.find('.price-value');
-                        if (directPriceValue.length > 0) {
-                            discountedPrice = directPriceValue.text().trim();
+                        const anyPriceValue = card.querySelector('.price-value');
+                        if (anyPriceValue) {
+                            discountedPrice = anyPriceValue.textContent?.trim() || '-';
                         }
                     }
 
-                    // Approach 3: Get all text from discounted-price div and extract price
-                    if (discountedPrice === '-' && discountedPriceDiv.length > 0) {
-                        const fullText = discountedPriceDiv.text().trim();
-                        // Extract price pattern like "1.234,56 TL" or "Sepette1.234,56 TL"
-                        const priceMatch = fullText.match(/[\d.,]+\s*TL/);
-                        if (priceMatch) {
-                            discountedPrice = priceMatch[0].trim();
+                    if (normalPrice === '-') {
+                        const anyStrike = card.querySelector('.strikethrough-price');
+                        if (anyStrike) {
+                            normalPrice = anyStrike.textContent?.trim() || '-';
                         }
                     }
 
-                    // Debug for first 3 products
-                    if (products.length < 3) {
-                        console.log(`🔍 PromoDiv: discPriceDiv=${discountedPriceDiv.length}, discPrice=${discountedPrice}, strike=${strikePriceDiv.length}`);
+                    if (fullName && link) {
+                        results.push({
+                            name: fullName,
+                            normalPrice,
+                            discountedPrice,
+                            link
+                        });
                     }
+                } catch (e) {
+                    console.error('Ürün işlenirken hata:', e);
                 }
+            });
 
-                // CASE 2: single-price structure (no discount)
-                // Structure: div.single-price > div.price-section
-                if (discountedPrice === '-' && normalPrice === '-') {
-                    const singlePriceDiv = card.find('[data-testid="single-price"]');
-                    if (singlePriceDiv.length > 0) {
-                        const priceSectionDiv = singlePriceDiv.find('div.price-section');
-                        if (priceSectionDiv.length > 0) {
-                            const singlePrice = priceSectionDiv.text().trim();
-                            normalPrice = singlePrice;
-                            discountedPrice = singlePrice;
-                        }
-                    }
-                }
+            return results;
+        });
 
-                // CASE 3: Fallback - try class-based selectors
-                if (discountedPrice === '-') {
-                    // Try .price-value anywhere in card
-                    const priceVal = card.find('.price-value').first();
-                    if (priceVal.length > 0) {
-                        discountedPrice = priceVal.text().trim();
-                    }
-                }
+        console.log(`📦 Toplam ${products.length} adet ürün çekildi.`);
 
-                if (normalPrice === '-') {
-                    // Try .strikethrough-price anywhere in card
-                    const strikePrice = card.find('.strikethrough-price').first();
-                    if (strikePrice.length > 0) {
-                        normalPrice = strikePrice.text().trim();
-                    }
-                }
-
-                // Debug: Log first 5 products
-                if (products.length < 5) {
-                    console.log(`💰 Ürün ${products.length + 1}: "${fullName.substring(0, 30)}..." | Normal: ${normalPrice} | İnd: ${discountedPrice}`);
-                }
-
-                if (fullName && link) {
-                    products.push({
-                        name: fullName,
-                        normalPrice,
-                        discountedPrice,
-                        link
-                    });
-                }
-            } catch (e) {
-                console.error('Ürün işlenirken hata:', e);
-            }
+        // Log first 5 products for debugging
+        products.slice(0, 5).forEach((p, i) => {
+            console.log(`💰 Ürün ${i + 1}: "${p.name.substring(0, 30)}..." | Normal: ${p.normalPrice} | İnd: ${p.discountedPrice}`);
         });
 
         return products;
