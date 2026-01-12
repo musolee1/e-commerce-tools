@@ -164,6 +164,12 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                 let normalPrice = '-';
                 let discountedPrice = '-';
 
+                // Debug: Log first 3 products' HTML structure
+                if (products.length < 3) {
+                    const priceHtml = card.find('[class*="price"]').parent().html();
+                    console.log(`🔍 Ürün ${products.length + 1} fiyat HTML:`, priceHtml?.substring(0, 500));
+                }
+
                 // Check for promotion price structure (ty-plus-promotion-price)
                 const promoDiv = card.find('div.ty-plus-promotion-price');
 
@@ -203,13 +209,24 @@ export async function scrapeTrendyol(targetUrl: string): Promise<TrendyolProduct
                     }
                 }
 
-                // If still no prices, try alternative selectors
-                if (normalPrice === '-' && discountedPrice === '-') {
-                    // Try any price in the card
-                    const anyPrice = card.find('[class*="price"]').first();
-                    if (anyPrice.length > 0) {
-                        discountedPrice = anyPrice.text().trim();
+                // If still no prices, try direct class selectors
+                if (normalPrice === '-' || discountedPrice === '-') {
+                    // Try strikethrough-price directly in card
+                    const directStrike = card.find('.strikethrough-price');
+                    if (directStrike.length > 0 && normalPrice === '-') {
+                        normalPrice = directStrike.text().trim();
                     }
+
+                    // Try price-value directly in card
+                    const directPriceVal = card.find('.price-value');
+                    if (directPriceVal.length > 0 && discountedPrice === '-') {
+                        discountedPrice = directPriceVal.text().trim();
+                    }
+                }
+
+                // Debug: Log extracted prices for first products
+                if (products.length < 3) {
+                    console.log(`💰 Ürün ${products.length + 1}: Normal=${normalPrice}, Discounted=${discountedPrice}`);
                 }
 
                 if (fullName && link) {
