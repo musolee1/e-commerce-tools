@@ -215,21 +215,8 @@ export default function PriceComparePage() {
         try {
             const results: UpdateResult[] = []
 
-            // Test ürünü dahil tüm seçili ürünleri işle
-            const selectedItems = Array.from(selectedProducts).map(idx => {
-                if (idx === -1) {
-                    // Test ürünü için veri
-                    return {
-                        product_name: '⚠️ TEST ÜRÜNÜ - HATA KONTROLÜ',
-                        trendyol_key: '9999999999999',
-                        barcode: 'TEST123456',
-                        site_price: 999.99,
-                        trendyol_normal_price: 1000.00,
-                        new_price: 854.99,
-                    }
-                }
-                return matchResults[idx]
-            })
+            // Tüm seçili ürünleri işle
+            const selectedItems = Array.from(selectedProducts).map(idx => matchResults[idx])
 
             for (const product of selectedItems) {
                 try {
@@ -554,23 +541,6 @@ export default function PriceComparePage() {
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
-                                        {/* Test Row */}
-                                        <tr className="border-b border-slate-100 bg-yellow-50">
-                                            <td className="px-3 py-3 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedProducts.has(-1)}
-                                                    onChange={() => toggleProductSelection(-1)}
-                                                    className="w-4 h-4 cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-700 font-semibold">⚠️ TEST ÜRÜNÜ - HATA KONTROLÜ</td>
-                                            <td className="px-4 py-3 font-mono text-xs text-slate-700">9999999999999</td>
-                                            <td className="px-4 py-3 text-slate-700 text-sm">TEST123456</td>
-                                            <td className="px-4 py-3 text-right text-slate-700 font-medium whitespace-nowrap">999.99 TL</td>
-                                            <td className="px-4 py-3 text-right text-emerald-600 font-bold whitespace-nowrap">854.99 TL</td>
-                                            <td className="px-4 py-3 text-right text-slate-700 font-medium whitespace-nowrap">1000.00 TL</td>
-                                        </tr>
                                         {matchResults.map((row, idx) => (
                                             <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                                 <td className="px-3 py-3 text-center">
