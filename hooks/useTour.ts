@@ -42,9 +42,9 @@ export function useTour() {
 // Tur adımları tanımları
 export const dashboardTourSteps = [
     {
-        target: '[data-tour="nav-products"]',
-        title: '📦 Ürün Yönetimi',
-        content: 'Trendyol ve İKAS ürünlerinizi bu sayfadan görüntüleyebilir, çekebilir ve yönetebilirsiniz.',
+        target: '[data-tour="nav-price-compare"]',
+        title: '💰 Fiyat Karşılaştır',
+        content: 'Trendyol ve site ürünlerinizi bu sayfadan görüntüleyebilir, çekebilir ve karşılaştırabilirsiniz.',
         placement: 'right' as const,
     },
     {
@@ -61,13 +61,7 @@ export const dashboardTourSteps = [
     },
 ]
 
-export const productsTourSteps = [
-    {
-        target: '[data-tour="match-button"]',
-        title: '🔗 Eşleştir & İndir',
-        content: 'Eşleştirme dosyasındaki barkodları İKAS ürünleriyle eşleştirip Excel olarak indirir.',
-        placement: 'bottom' as const,
-    },
+export const priceCompareTourSteps = [
     {
         target: '[data-tour="trendyol-fetch"]',
         title: '🛍️ Trendyol Ürünleri',
@@ -75,9 +69,9 @@ export const productsTourSteps = [
         placement: 'bottom' as const,
     },
     {
-        target: '[data-tour="ikas-fetch"]',
-        title: '🏪 İKAS Ürünleri',
-        content: 'İKAS mağazanızdaki tüm ürün ve varyantları çekmek için bu butonu kullanın.',
+        target: '[data-tour="site-fetch"]',
+        title: '🏪 Site Ürünleri',
+        content: 'Site ürünlerinizi external JSON\'dan çekmek ve yenilemek için bu butonu kullanın.',
         placement: 'bottom' as const,
     },
 ]

@@ -26,7 +26,7 @@ export default function DashboardNav({ user }: DashboardNavProps) {
 
     const navItems = [
         { name: 'Telegram Bot', path: '/dashboard/telegram-bot', icon: Send, tourId: 'nav-telegram' },
-        { name: 'Ürünler', path: '/dashboard/products', icon: Package, tourId: 'nav-products' },
+        { name: 'Fiyat Karşılaştır', path: '/dashboard/price-compare', icon: Package, tourId: 'nav-price-compare' },
         { name: 'Geçmiş', path: '/dashboard/history', icon: History, tourId: 'nav-history' },
         { name: 'Ayarlar', path: '/dashboard/settings', icon: Settings, tourId: 'nav-settings' },
     ]
