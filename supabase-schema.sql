@@ -187,6 +187,47 @@ CREATE POLICY "Users can delete their own matching data"
   USING (auth.uid() = user_id);
 
 -- ============================================
+-- IKAS GROUPED PRODUCTS - Gruplandırılmış Ürünler
+-- ============================================
+-- Bu tablo Excel'den yüklenen ve gruplandırılmış ürünleri saklar
+
+CREATE TABLE IF NOT EXISTS ikas_grouped_products (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  urun_grup_id TEXT NOT NULL,
+  urun_ismi TEXT NOT NULL,
+  varyant_degerler TEXT NOT NULL,  -- "S, M, L, XL" formatında
+  resim_urlleri TEXT,               -- ";" ile ayrılmış URL'ler
+  toplam_stok INTEGER DEFAULT 0,
+  stok_kodu TEXT,                   -- SKU'dan ilk "-" işaretine kadar (örn: SWS9072)
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, urun_grup_id)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS ikas_grouped_products_user_id_idx ON ikas_grouped_products(user_id);
+CREATE INDEX IF NOT EXISTS ikas_grouped_products_uploaded_at_idx ON ikas_grouped_products(uploaded_at DESC);
+
+-- Row Level Security
+ALTER TABLE ikas_grouped_products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own grouped products"
+  ON ikas_grouped_products FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own grouped products"
+  ON ikas_grouped_products FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own grouped products"
+  ON ikas_grouped_products FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own grouped products"
+  ON ikas_grouped_products FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================
 -- VERIFICATION QUERIES
 -- ============================================
 -- Tabloların oluştuğunu doğrulamak için:
