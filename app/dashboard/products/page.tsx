@@ -377,7 +377,7 @@ export default function ProductsPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-900 mb-2">Ürün Yönetimi</h1>
                 <p className="text-slate-600">
-                    Trendyol ve İKAS ürünlerinizi görüntüleyin ve yönetin
+                    Pazaryeri ürünlerinizi görüntüleyin ve yönetin
                 </p>
             </div>
 
