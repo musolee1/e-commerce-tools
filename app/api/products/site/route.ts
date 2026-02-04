@@ -13,7 +13,7 @@ interface SiteProductJSON {
     SitePrice: string;
 }
 
-// POST - Fetch from external JSON and save to Supabase
+// POST - Delete all first, then fetch from external JSON and save to Supabase
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();
@@ -23,7 +23,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Fetch from external JSON
+        // ✅ Step 1: Delete all existing products for this user first
+        console.log('🗑️ Mevcut site ürünleri siliniyor...');
+        const { error: deleteError } = await supabase
+            .from('site_products')
+            .delete()
+            .eq('user_id', user.id);
+
+        if (deleteError) {
+            console.error('Delete error:', deleteError);
+            return NextResponse.json(
+                { error: 'Mevcut veriler silinirken hata oluştu: ' + deleteError.message },
+                { status: 500 }
+            );
+        }
+        console.log('✅ Mevcut ürünler silindi');
+
+        // ✅ Step 2: Fetch from external JSON
         console.log('🔍 Site ürünleri çekiliyor:', SITE_PRODUCTS_URL);
         const response = await fetch(SITE_PRODUCTS_URL);
 
@@ -39,7 +55,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`📦 ${jsonData.length} site ürünü alındı`);
 
-        // Transform and prepare for upsert
+        // ✅ Step 3: Transform and insert (not upsert)
         const insertData = jsonData.map(item => ({
             user_id: user.id,
             trendyol_key: item.TrendyolKey,
@@ -48,29 +64,26 @@ export async function POST(request: NextRequest) {
             fetched_at: new Date().toISOString(),
         }));
 
-        // Batch upsert - 500 at a time
+        // Batch insert - 500 at a time
         const BATCH_SIZE = 500;
         let totalInserted = 0;
 
         for (let i = 0; i < insertData.length; i += BATCH_SIZE) {
             const batch = insertData.slice(i, i + BATCH_SIZE);
-            const { error: upsertError } = await supabase
+            const { error: insertError } = await supabase
                 .from('site_products')
-                .upsert(batch, {
-                    onConflict: 'user_id,trendyol_key',
-                    ignoreDuplicates: false
-                });
+                .insert(batch);
 
-            if (upsertError) {
-                console.error(`Batch ${i / BATCH_SIZE + 1} upsert error:`, upsertError);
+            if (insertError) {
+                console.error(`Batch ${i / BATCH_SIZE + 1} insert error:`, insertError);
                 return NextResponse.json(
-                    { error: 'Veriler kaydedilirken hata oluştu: ' + upsertError.message },
+                    { error: 'Veriler kaydedilirken hata oluştu: ' + insertError.message },
                     { status: 500 }
                 );
             }
 
             totalInserted += batch.length;
-            console.log(`✅ Batch ${i / BATCH_SIZE + 1}: ${batch.length} kayıt eklendi/güncellendi`);
+            console.log(`✅ Batch ${i / BATCH_SIZE + 1}: ${batch.length} kayıt eklendi`);
         }
 
         // Fetch updated products to return

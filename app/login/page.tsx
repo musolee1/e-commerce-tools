@@ -32,95 +32,93 @@ export default function LoginPage() {
         {
             icon: ShoppingBag,
             title: 'Çoklu Pazar Yönetimi',
-            description: 'Trendyol, İkas ve daha fazlasını tek panelden yönetin'
+            description: 'Trendyol, İkas ve daha fazlası'
         },
         {
             icon: TrendingUp,
             title: 'Fiyat Takibi',
-            description: 'Rakip fiyatlarını takip edin, otomatik güncelleyin'
+            description: 'Rakip fiyatlarını takip edin'
         },
         {
             icon: BarChart3,
             title: 'Stok Senkronizasyonu',
-            description: 'Tüm platformlarda stok bilgilerinizi senkronize edin'
+            description: 'Tüm platformlarda senkronize'
         },
         {
             icon: Zap,
             title: 'Telegram Entegrasyonu',
-            description: 'Ürünlerinizi anında Telegram kanallarına gönderin'
+            description: 'Ürünleri anında gönderin'
         }
     ]
 
     return (
-        <div className="min-h-screen flex">
-            {/* Left Side - Branding & Features */}
-            <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-12 flex-col justify-between relative overflow-hidden">
+        <div className="h-screen w-screen overflow-hidden flex">
+            {/* Left Side - Branding & Features (Desktop Only) */}
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-8 xl:p-12 flex-col justify-between relative overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-30">
-                    <div className="absolute top-20 left-20 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
-                    <div className="absolute bottom-20 right-20 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
-                    <div className="absolute top-1/2 left-1/3 w-72 h-72 bg-green-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+                    <div className="absolute top-20 left-20 w-64 h-64 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+                    <div className="absolute bottom-20 right-20 w-64 h-64 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
                 </div>
 
                 {/* Content */}
                 <div className="relative z-10">
                     {/* Logo */}
-                    <div className="flex items-center gap-3 mb-16">
-                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                            <ShoppingBag className="w-6 h-6 text-white" />
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                            <ShoppingBag className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-gray-900">Pazar Yöneticim</span>
+                        <span className="text-xl font-bold text-gray-900">Pazar Yöneticim</span>
                     </div>
 
                     {/* Hero Text */}
-                    <div className="max-w-lg">
-                        <h1 className="text-4xl xl:text-5xl font-bold text-gray-900 leading-tight mb-6">
+                    <div className="max-w-md">
+                        <h1 className="text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-4">
                             E-Ticaret Operasyonlarınızı
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600"> Tek Panelden</span> Yönetin
                         </h1>
-                        <p className="text-lg text-gray-600 leading-relaxed">
+                        <p className="text-gray-600 leading-relaxed">
                             Trendyol, İkas ve diğer platformlardaki ürünlerinizi tek bir yerden kontrol edin.
-                            Fiyat karşılaştırma, stok takibi ve Telegram entegrasyonu ile işinizi kolaylaştırın.
                         </p>
                     </div>
                 </div>
 
                 {/* Features Grid */}
-                <div className="relative z-10 grid grid-cols-2 gap-6 mt-12">
+                <div className="relative z-10 grid grid-cols-2 gap-4 mt-6">
                     {features.map((feature, index) => (
-                        <div key={index} className="bg-white/60 backdrop-blur-sm rounded-2xl p-5 border border-white/80 shadow-sm">
-                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mb-3 shadow-md shadow-emerald-500/20">
-                                <feature.icon className="w-5 h-5 text-white" />
+                        <div key={index} className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/80 shadow-sm">
+                            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mb-2 shadow-md shadow-emerald-500/20">
+                                <feature.icon className="w-4 h-4 text-white" />
                             </div>
-                            <h3 className="font-semibold text-gray-900 mb-1">{feature.title}</h3>
-                            <p className="text-sm text-gray-600">{feature.description}</p>
+                            <h3 className="font-semibold text-gray-900 text-sm mb-1">{feature.title}</h3>
+                            <p className="text-xs text-gray-600">{feature.description}</p>
                         </div>
                     ))}
                 </div>
 
                 {/* Footer */}
-                <div className="relative z-10 text-sm text-gray-500 mt-8">
+                <div className="relative z-10 text-xs text-gray-500 mt-4">
                     © 2024 Pazar Yöneticim. Tüm hakları saklıdır.
                 </div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center p-8 bg-white">
-                <div className="w-full max-w-md">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white">
+                <div className="w-full max-w-sm">
                     {/* Mobile Logo */}
-                    <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-                        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                            <ShoppingBag className="w-6 h-6 text-white" />
+                    <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                            <ShoppingBag className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-gray-900">Pazar Yöneticim</span>
+                        <span className="text-xl font-bold text-gray-900">Pazar Yöneticim</span>
                     </div>
 
                     {/* Login Card */}
-                    <div className="text-center lg:text-left mb-8">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                    <div className="text-center lg:text-left mb-6">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                             Hoş Geldiniz 👋
                         </h2>
-                        <p className="text-gray-600">
+                        <p className="text-gray-600 text-sm sm:text-base">
                             Hesabınıza giriş yaparak yönetim paneline erişin
                         </p>
                     </div>
@@ -130,7 +128,7 @@ export default function LoginPage() {
                         <button
                             onClick={handleGoogleLogin}
                             disabled={loading}
-                            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-4 px-6 rounded-xl transition-all duration-200 border-2 border-gray-200 hover:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 border-2 border-gray-200 hover:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
                         >
                             {loading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -146,29 +144,22 @@ export default function LoginPage() {
                         </button>
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-4">
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">
                                 {error}
                             </div>
                         )}
                     </div>
 
-                    {/* Divider */}
-                    <div className="my-8 flex items-center gap-4">
-                        <div className="flex-1 h-px bg-gray-200"></div>
-                        <span className="text-sm text-gray-500">veya</span>
-                        <div className="flex-1 h-px bg-gray-200"></div>
-                    </div>
-
                     {/* Info */}
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                        <p className="text-sm text-emerald-800">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 mt-6">
+                        <p className="text-xs sm:text-sm text-emerald-800">
                             <strong>Yeni misiniz?</strong> Google hesabınızla ilk kez giriş yaptığınızda otomatik olarak hesabınız oluşturulacaktır.
                         </p>
                     </div>
 
-                    {/* Footer */}
-                    <p className="text-center text-gray-500 text-xs mt-8">
-                        Giriş yaparak <a href="#" className="text-emerald-600 hover:underline">kullanım koşullarını</a> ve <a href="#" className="text-emerald-600 hover:underline">gizlilik politikasını</a> kabul etmiş olursunuz.
+                    {/* Footer - Mobile */}
+                    <p className="text-center text-gray-500 text-xs mt-6 lg:hidden">
+                        © 2024 Pazar Yöneticim
                     </p>
                 </div>
             </div>
@@ -182,7 +173,6 @@ export default function LoginPage() {
                 }
                 .animate-blob { animation: blob 7s infinite; }
                 .animation-delay-2000 { animation-delay: 2s; }
-                .animation-delay-4000 { animation-delay: 4s; }
             `}</style>
         </div>
     )

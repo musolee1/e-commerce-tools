@@ -55,6 +55,9 @@ export default function PriceComparePage() {
     const [showUpdateResults, setShowUpdateResults] = useState(false)
     const [updateResults, setUpdateResults] = useState<UpdateResult[]>([])
 
+    // Discount percentage (default 14.5%)
+    const [discountPercent, setDiscountPercent] = useState(14.5)
+
     // Load saved products on mount
     useEffect(() => {
         loadSavedProducts()
@@ -167,6 +170,8 @@ export default function PriceComparePage() {
         try {
             const response = await fetch('/api/match-compare', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discountPercent }),
             })
 
             const data = await response.json()
@@ -399,11 +404,11 @@ export default function PriceComparePage() {
     ]
 
     return (
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-0">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Fiyat Karşılaştır</h1>
-                <p className="text-slate-600">
+            <div className="mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">Fiyat Karşılaştır</h1>
+                <p className="text-sm sm:text-base text-slate-600">
                     Trendyol ve site ürünlerinizi görüntüleyin ve karşılaştırın
                 </p>
             </div>
@@ -419,29 +424,43 @@ export default function PriceComparePage() {
                 </div>
             )}
 
-            {/* Match Button */}
-            <div className="mb-6">
+            {/* Match Button + Discount Input */}
+            <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-2">
+                    <label htmlFor="discount" className="text-xs sm:text-sm font-medium text-slate-700 whitespace-nowrap">İndirim %:</label>
+                    <input
+                        id="discount"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={discountPercent}
+                        onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                        className="w-16 sm:w-20 px-2 sm:px-3 py-1.5 sm:py-2 border border-slate-300 rounded-lg text-center text-sm font-semibold focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                </div>
                 <button
                     onClick={handleMatchCompare}
                     disabled={matching}
-                    className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/30"
+                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/30 text-sm sm:text-base"
                 >
                     {matching ? (
                         <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                             <span>Eşleştiriliyor...</span>
                         </>
                     ) : (
                         <>
-                            <Link2 className="w-5 h-5" />
-                            <span>EŞLEŞTİR VE GÖRÜNTÜLE</span>
+                            <Link2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span className="hidden xs:inline">EŞLEŞTİR VE GÖRÜNTÜLE</span>
+                            <span className="xs:hidden">Eşleştir</span>
                         </>
                     )}
                 </button>
-                <p className="text-xs text-slate-500 mt-2">
-                    Trendyol ve Site ürünlerini eşleştirip karşılaştırmalı tablo oluşturur
-                </p>
             </div>
+            <p className="text-xs text-slate-500 mb-4 -mt-1 sm:-mt-2">
+                Trendyol fiyatlarına belirlediğiniz % indirim uygulanarak yeni fiyat hesaplanır
+            </p>
 
             {/* Product Tables - Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

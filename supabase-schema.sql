@@ -106,6 +106,11 @@ CREATE POLICY "Users can insert their own trendyol products"
   ON trendyol_products FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can update their own trendyol products"
+  ON trendyol_products FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can delete their own trendyol products"
   ON trendyol_products FOR DELETE
   USING (auth.uid() = user_id);
@@ -225,6 +230,46 @@ CREATE POLICY "Users can update their own grouped products"
 
 CREATE POLICY "Users can delete their own grouped products"
   ON ikas_grouped_products FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- ============================================
+-- SITE PRODUCTS - Site Ürünleri
+-- ============================================
+-- Bu tablo sitenizden çekilen ürün verilerini saklar
+
+CREATE TABLE IF NOT EXISTS site_products (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  trendyol_key TEXT NOT NULL,
+  barcode TEXT,
+  site_price NUMERIC,
+  fetched_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, trendyol_key)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS site_products_user_id_idx ON site_products(user_id);
+CREATE INDEX IF NOT EXISTS site_products_trendyol_key_idx ON site_products(trendyol_key);
+CREATE INDEX IF NOT EXISTS site_products_fetched_at_idx ON site_products(fetched_at DESC);
+
+-- Row Level Security
+ALTER TABLE site_products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own site products"
+  ON site_products FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own site products"
+  ON site_products FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own site products"
+  ON site_products FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own site products"
+  ON site_products FOR DELETE
   USING (auth.uid() = user_id);
 
 -- ============================================

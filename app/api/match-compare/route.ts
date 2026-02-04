@@ -50,6 +50,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Get discount percentage from request body (default 14.5%)
+        let discountPercent = 14.5;
+        try {
+            const body = await request.json();
+            if (body.discountPercent !== undefined) {
+                discountPercent = parseFloat(body.discountPercent) || 14.5;
+            }
+        } catch {
+            // Body parsing failed, use default
+        }
+
         // 1. Eşleştirme verilerini al (Trendyol link ↔ Barcode)
         const { data: matchingData, error: matchError } = await supabase
             .from('matching_data')
@@ -142,8 +153,8 @@ export async function POST(request: NextRequest) {
             // Site fiyatı T.Normal'in %5 indirimli halinden ucuz veya eşitse, listeye ekleme
             if (sitePriceNum <= trendyolWith5Discount) continue;
 
-            // Yeni Fiyat: T.Normal'e %14.5 indirim uygula
-            const newPrice = trendyolNormalNum * (1 - 0.145);
+            // Yeni Fiyat: T.Normal'e kullanıcının belirlediği indirim uygula
+            const newPrice = trendyolNormalNum * (1 - discountPercent / 100);
 
             // Eşleşme başarılı ve site fiyatı pahalı - sonuç dizisine ekle
             matchResults.push({
