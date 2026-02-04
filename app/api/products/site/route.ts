@@ -55,8 +55,18 @@ export async function POST(request: NextRequest) {
 
         console.log(`📦 ${jsonData.length} site ürünü alındı`);
 
-        // ✅ Step 3: Transform and insert (not upsert)
-        const insertData = jsonData.map(item => ({
+        // ✅ Step 3: Remove duplicates - keep last occurrence of each TrendyolKey
+        const uniqueProducts = new Map<string, SiteProductJSON>();
+        for (const item of jsonData) {
+            if (item.TrendyolKey) {
+                uniqueProducts.set(item.TrendyolKey, item);
+            }
+        }
+
+        console.log(`🔄 ${jsonData.length} üründen ${uniqueProducts.size} benzersiz ürün`);
+
+        // ✅ Step 4: Transform and insert
+        const insertData = Array.from(uniqueProducts.values()).map(item => ({
             user_id: user.id,
             trendyol_key: item.TrendyolKey,
             barcode: item.Barcode,
