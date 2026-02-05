@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -6,6 +7,29 @@ export const dynamic = 'force-dynamic';
 // POST - Update site price via proxy
 export async function POST(request: NextRequest) {
     try {
+        const supabase = await createClient();
+
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Get user settings for the API URL
+        const { data: settings } = await supabase
+            .from('user_settings')
+            .select('site_update_price_api_url')
+            .eq('user_id', user.id)
+            .single();
+
+        const updatePriceUrl = settings?.site_update_price_api_url;
+
+        if (!updatePriceUrl) {
+            return NextResponse.json(
+                { error: 'Site Fiyat Güncelleme API URL ayarlanmamış. Lütfen Ayarlar sayfasından API URL\'ini girin.' },
+                { status: 400 }
+            );
+        }
+
         const body = await request.json();
         const { TrendyolKey, NewSitePrice } = body;
 
@@ -17,7 +41,7 @@ export async function POST(request: NextRequest) {
         }
 
         // External API'ye istek at
-        const response = await fetch('https://swassonline.coddepo.com/Special/SpecialApps/UpdateSitePrice', {
+        const response = await fetch(updatePriceUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

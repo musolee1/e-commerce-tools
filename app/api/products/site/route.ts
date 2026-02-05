@@ -4,9 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-// External JSON URL
-const SITE_PRODUCTS_URL = 'https://swassonline.coddepo.com/Special/SpecialApps/GetTrendyolProducts';
-
 interface SiteProductJSON {
     TrendyolKey: string;
     Barcode: string;
@@ -21,6 +18,22 @@ export async function POST(request: NextRequest) {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Get user settings for the API URL
+        const { data: settings } = await supabase
+            .from('user_settings')
+            .select('site_products_api_url')
+            .eq('user_id', user.id)
+            .single();
+
+        const siteProductsUrl = settings?.site_products_api_url;
+
+        if (!siteProductsUrl) {
+            return NextResponse.json(
+                { error: 'Site Ürünleri API URL ayarlanmamış. Lütfen Ayarlar sayfasından API URL\'ini girin.' },
+                { status: 400 }
+            );
         }
 
         // ✅ Step 1: Delete all existing products for this user first
@@ -40,8 +53,8 @@ export async function POST(request: NextRequest) {
         console.log('✅ Mevcut ürünler silindi');
 
         // ✅ Step 2: Fetch from external JSON
-        console.log('🔍 Site ürünleri çekiliyor:', SITE_PRODUCTS_URL);
-        const response = await fetch(SITE_PRODUCTS_URL);
+        console.log('🔍 Site ürünleri çekiliyor:', siteProductsUrl);
+        const response = await fetch(siteProductsUrl);
 
         if (!response.ok) {
             throw new Error(`External API failed: ${response.status}`);

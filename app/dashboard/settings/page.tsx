@@ -18,6 +18,8 @@ export default function SettingsPage() {
         telegram_bot_token: '',
         telegram_chat_id: '',
         site_url: '',
+        site_products_api_url: '',
+        site_update_price_api_url: '',
         trendyol_target_url: '',
         trendyol_brand_slug: '',
         replace_genel_markalar: false,
@@ -40,6 +42,8 @@ export default function SettingsPage() {
                     telegram_bot_token: data.telegram_bot_token || '',
                     telegram_chat_id: data.telegram_chat_id || '',
                     site_url: data.site_url || '',
+                    site_products_api_url: data.site_products_api_url || '',
+                    site_update_price_api_url: data.site_update_price_api_url || '',
                     trendyol_target_url: data.trendyol_target_url || '',
                     trendyol_brand_slug: data.trendyol_brand_slug || '',
                     replace_genel_markalar: data.replace_genel_markalar || false,
@@ -247,6 +251,40 @@ export default function SettingsPage() {
                         />
                         <p className="text-xs text-slate-500 mt-2">
                             Ürün linklerinde kullanılacak site URL'i
+                        </p>
+                    </div>
+
+                    {/* Site Products API URL */}
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                            Site Ürünleri API URL <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="url"
+                            value={settings.site_products_api_url}
+                            onChange={(e) => setSettings({ ...settings, site_products_api_url: e.target.value })}
+                            placeholder="https://siteniz.com/api/GetProducts"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">
+                            Site ürünlerini çekmek için kullanılacak API adresi (Fiyat Karşılaştır sayfası için)
+                        </p>
+                    </div>
+
+                    {/* Site Update Price API URL */}
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">
+                            Site Fiyat Güncelleme API URL <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="url"
+                            value={settings.site_update_price_api_url}
+                            onChange={(e) => setSettings({ ...settings, site_update_price_api_url: e.target.value })}
+                            placeholder="https://siteniz.com/api/UpdatePrice"
+                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                        />
+                        <p className="text-xs text-slate-500 mt-2">
+                            Site fiyatlarını güncellemek için kullanılacak API adresi
                         </p>
                     </div>
                 </div>

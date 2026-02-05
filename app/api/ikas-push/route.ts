@@ -132,13 +132,13 @@ export async function POST(request: NextRequest) {
             .eq('user_id', user.id)
             .single();
 
-        if (settingsError || !settings?.ikas_client_id || !settings?.ikas_client_secret) {
-            return NextResponse.json({ error: 'İKAS ayarları eksik. Lütfen ayarlar sayfasından İKAS bilgilerinizi girin.' }, { status: 400 });
+        if (settingsError || !settings?.ikas_client_id || !settings?.ikas_client_secret || !settings?.ikas_store_name) {
+            return NextResponse.json({ error: 'İKAS ayarları eksik. Lütfen Ayarlar sayfasından İKAS mağaza adı, Client ID ve Client Secret bilgilerinizi girin.' }, { status: 400 });
         }
 
         // İKAS token al
         const token = await getIkasToken(
-            settings.ikas_store_name || 'swassonline',
+            settings.ikas_store_name,
             settings.ikas_client_id,
             settings.ikas_client_secret
         );
