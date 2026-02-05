@@ -4,6 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Auth pages that should redirect to dashboard if user is logged in
 const authPages = ['/login', '/register', '/forgot-password', '/verify-email']
 
+// Public pages accessible without authentication
+const publicPages = ['/', '/login', '/register', '/forgot-password', '/verify-email', '/reset-password']
+
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
         request: {
