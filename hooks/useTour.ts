@@ -42,6 +42,12 @@ export function useTour() {
 // Tur adımları tanımları
 export const dashboardTourSteps = [
     {
+        target: '[data-tour="nav-telegram"]',
+        title: '📱 Telegram Bot',
+        content: 'Ürünlerinizi Excel\'den yükleyin ve Telegram kanalınıza gönderin.',
+        placement: 'right' as const,
+    },
+    {
         target: '[data-tour="nav-price-compare"]',
         title: '💰 Fiyat Karşılaştır',
         content: 'Trendyol ve site ürünlerinizi bu sayfadan görüntüleyebilir, çekebilir ve karşılaştırabilirsiniz.',
@@ -51,12 +57,6 @@ export const dashboardTourSteps = [
         target: '[data-tour="nav-settings"]',
         title: '⚙️ Ayarlar',
         content: 'Telegram bot, Trendyol ve İKAS API bilgilerinizi bu sayfadan ayarlayabilirsiniz.',
-        placement: 'right' as const,
-    },
-    {
-        target: '[data-tour="nav-history"]',
-        title: '📜 Geçmiş',
-        content: 'Telegram\'a gönderilen mesajların geçmişini buradan takip edebilirsiniz.',
         placement: 'right' as const,
     },
 ]

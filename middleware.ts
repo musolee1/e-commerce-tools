@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Auth pages that should redirect to dashboard if user is logged in
+const authPages = ['/login', '/register', '/forgot-password', '/verify-email']
+
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
         request: {
@@ -35,13 +38,16 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
+    const pathname = request.nextUrl.pathname
+
     // If user is not signed in and trying to access dashboard, redirect to login
-    if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    if (!user && pathname.startsWith('/dashboard')) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // If user is signed in and trying to access login, redirect to dashboard
-    if (user && request.nextUrl.pathname === '/login') {
+    // If user is signed in and trying to access auth pages, redirect to dashboard
+    // Exception: reset-password page should be accessible even when logged in
+    if (user && authPages.some(page => pathname === page)) {
         return NextResponse.redirect(new URL('/dashboard/telegram-bot', request.url))
     }
 
@@ -53,3 +59,4 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
+
