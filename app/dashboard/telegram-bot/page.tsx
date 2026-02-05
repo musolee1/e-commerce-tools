@@ -392,14 +392,21 @@ export default function TelegramBotPage() {
 
     return (
         <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                    Telegram Bot Yönetimi
-                </h1>
-                <p className="text-slate-600">
-                    Excel dosyalarınızı yükleyin, ürünleri seçin ve Telegram kanalınıza gönderin
-                </p>
+            {/* Header with Telegram branding */}
+            <div className="mb-8 flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/30">
+                    <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900">
+                        Telegram Gönderilerim
+                    </h1>
+                    <p className="text-slate-600">
+                        Excel dosyalarınızı yükleyin, ürünleri seçin ve Telegram kanalınıza gönderin
+                    </p>
+                </div>
             </div>
 
             {/* Tab Navigation */}
@@ -407,7 +414,7 @@ export default function TelegramBotPage() {
                 <button
                     onClick={() => setActiveTab('products')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'products'
-                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                         : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                         }`}
                 >
@@ -417,7 +424,7 @@ export default function TelegramBotPage() {
                 <button
                     onClick={() => { setActiveTab('history'); loadHistory(); }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'history'
-                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                         : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                         }`}
                 >
@@ -458,8 +465,8 @@ export default function TelegramBotPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
-                                <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 text-emerald-600 animate-spin" />
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold text-slate-900">Gönderiliyor...</h3>
@@ -478,7 +485,7 @@ export default function TelegramBotPage() {
                     {/* Progress bar */}
                     <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden mb-3">
                         <div
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-300"
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600 to-teal-600 transition-all duration-300"
                             style={{ width: `${progressPercentage}%` }}
                         />
                     </div>
@@ -565,8 +572,8 @@ export default function TelegramBotPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-violet-600" />
+                                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-emerald-600" />
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-semibold text-slate-900">Kayıtlı Ürünler</h2>
@@ -610,8 +617,8 @@ export default function TelegramBotPage() {
                                         <button
                                             onClick={() => setHidePreviouslySent(!hidePreviouslySent)}
                                             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${hidePreviouslySent
-                                                    ? 'bg-violet-100 text-violet-700 border border-violet-300'
-                                                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                                                 }`}
                                         >
                                             {hidePreviouslySent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -627,7 +634,7 @@ export default function TelegramBotPage() {
                                 <button
                                     onClick={handleSendToTelegram}
                                     disabled={sending || selectedIds.size === 0}
-                                    className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/30"
+                                    className="flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-sky-500/30"
                                 >
                                     {sending ? (
                                         <>
@@ -652,14 +659,14 @@ export default function TelegramBotPage() {
                                     placeholder="Ürün adı veya stok kodu ara..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                                 />
                             </div>
                         )}
 
                         {loadingGrouped ? (
                             <div className="flex items-center justify-center py-12">
-                                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+                                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
                             </div>
                         ) : groupedProducts.length === 0 ? (
                             <div className="text-center py-12">
@@ -691,9 +698,9 @@ export default function TelegramBotPage() {
                                     <thead>
                                         <tr className="border-b border-slate-200">
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 w-12">
-                                                <button onClick={selectAll} className="hover:text-violet-600" disabled={sending}>
+                                                <button onClick={selectAll} className="hover:text-emerald-600" disabled={sending}>
                                                     {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? (
-                                                        <CheckSquare className="w-5 h-5 text-violet-600" />
+                                                        <CheckSquare className="w-5 h-5 text-emerald-600" />
                                                     ) : (
                                                         <Square className="w-5 h-5" />
                                                     )}
@@ -713,7 +720,7 @@ export default function TelegramBotPage() {
                                                 className={`border-b border-slate-100 transition-colors cursor-pointer ${product.previously_sent
                                                     ? 'bg-red-50 hover:bg-red-100'
                                                     : selectedIds.has(product.id)
-                                                        ? 'bg-violet-50 hover:bg-violet-100'
+                                                        ? 'bg-emerald-50 hover:bg-emerald-100'
                                                         : 'hover:bg-slate-50'
                                                     }`}
                                                 onClick={() => !sending && toggleSelect(product.id)}
@@ -721,11 +728,11 @@ export default function TelegramBotPage() {
                                                 <td className="py-3 px-4">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); !sending && toggleSelect(product.id); }}
-                                                        className="hover:text-violet-600"
+                                                        className="hover:text-emerald-600"
                                                         disabled={sending}
                                                     >
                                                         {selectedIds.has(product.id) ? (
-                                                            <CheckSquare className="w-5 h-5 text-violet-600" />
+                                                            <CheckSquare className="w-5 h-5 text-emerald-600" />
                                                         ) : (
                                                             <Square className="w-5 h-5 text-slate-400" />
                                                         )}
@@ -747,7 +754,7 @@ export default function TelegramBotPage() {
                                                         {product.varyant_degerler.split(', ').filter(v => v).map((variant, idx) => (
                                                             <span
                                                                 key={idx}
-                                                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-violet-100 text-violet-700"
+                                                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700"
                                                             >
                                                                 {variant}
                                                             </span>
