@@ -392,20 +392,76 @@ export default function TelegramBotPage() {
 
     return (
         <div className="max-w-7xl mx-auto">
-            {/* Header with Telegram branding */}
-            <div className="mb-8 flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/30">
-                    <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                    </svg>
+            {/* Header and Upload Section - Side by Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                {/* Left Card: Header with Telegram branding */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/30 flex-shrink-0">
+                        <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">
+                            Telegram Gönderilerim
+                        </h1>
+                        <p className="text-sm text-slate-600">
+                            Ürünleri seçin ve Telegram kanalınıza gönderin
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">
-                        Telegram Gönderilerim
-                    </h1>
-                    <p className="text-slate-600">
-                        Excel dosyalarınızı yükleyin, ürünleri seçin ve Telegram kanalınıza gönderin
-                    </p>
+
+                {/* Right Card: Excel Upload */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Database className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-slate-900">Excel'i Veritabanına Kaydet</h2>
+                            <p className="text-xs text-slate-500">Yeni format Excel dosyasını yükleyin</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <label className="flex-1">
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={handleGroupedFileUpload}
+                                disabled={uploadingGrouped || sending}
+                                className="block w-full text-sm text-slate-500
+                                    file:mr-3 file:py-2 file:px-4
+                                    file:rounded-lg file:border-0
+                                    file:text-sm file:font-semibold
+                                    file:bg-gradient-to-r file:from-emerald-600 file:to-teal-600
+                                    file:text-white
+                                    hover:file:from-emerald-700 hover:file:to-teal-700
+                                    file:cursor-pointer
+                                    file:transition-all
+                                    cursor-pointer
+                                    disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                        </label>
+
+                        {groupedProducts.length > 0 && (
+                            <button
+                                onClick={clearGroupedProducts}
+                                disabled={sending}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors disabled:opacity-50 text-sm"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Temizle
+                            </button>
+                        )}
+                    </div>
+
+                    {uploadingGrouped && (
+                        <div className="mt-3 flex items-center gap-2 text-emerald-600">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Dosya işleniyor...</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -507,7 +563,7 @@ export default function TelegramBotPage() {
                                 </span>
                             )}
                         </div>
-                        <span className="font-semibold text-violet-600">{progressPercentage}%</span>
+                        <span className="font-semibold text-emerald-600">{progressPercentage}%</span>
                     </div>
                 </div>
             )}
@@ -515,59 +571,6 @@ export default function TelegramBotPage() {
             {/* PRODUCTS TAB */}
             {activeTab === 'products' && (
                 <>
-                    {/* Upload Section */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                <Database className="w-5 h-5 text-emerald-600" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-slate-900">Excel'i Veritabanına Kaydet</h2>
-                                <p className="text-sm text-slate-500">Yeni format Excel dosyasını yükleyin</p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                            <label className="flex-1">
-                                <input
-                                    type="file"
-                                    accept=".xlsx,.xls"
-                                    onChange={handleGroupedFileUpload}
-                                    disabled={uploadingGrouped || sending}
-                                    className="block w-full text-sm text-slate-500
-                                        file:mr-4 file:py-3 file:px-6
-                                        file:rounded-xl file:border-0
-                                        file:text-sm file:font-semibold
-                                        file:bg-gradient-to-r file:from-emerald-600 file:to-teal-600
-                                        file:text-white
-                                        hover:file:from-emerald-700 hover:file:to-teal-700
-                                        file:cursor-pointer
-                                        file:transition-all
-                                        cursor-pointer
-                                        disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                            </label>
-
-                            {groupedProducts.length > 0 && (
-                                <button
-                                    onClick={clearGroupedProducts}
-                                    disabled={sending}
-                                    className="flex items-center gap-2 px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors disabled:opacity-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Temizle
-                                </button>
-                            )}
-                        </div>
-
-                        {uploadingGrouped && (
-                            <div className="mt-4 flex items-center gap-2 text-emerald-600">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span className="text-sm">Dosya işleniyor ve veritabanına kaydediliyor...</span>
-                            </div>
-                        )}
-                    </div>
-
                     {/* Products Table */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                         <div className="flex items-center justify-between mb-4">
