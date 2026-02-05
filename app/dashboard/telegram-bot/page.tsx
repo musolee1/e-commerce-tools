@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Upload, Send, Package, AlertCircle, CheckCircle2, Loader2, Database, Trash2, Image, RefreshCw, History, XCircle, CheckSquare, Square } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Upload, Send, Package, AlertCircle, CheckCircle2, Loader2, Database, Trash2, Image, RefreshCw, History, XCircle, CheckSquare, Square, Filter, Eye, EyeOff } from 'lucide-react'
 
 interface GroupedProduct {
     id: string
@@ -24,6 +24,18 @@ interface TelegramLog {
     sent_at: string
 }
 
+interface SendProgress {
+    current: number
+    total: number
+    successCount: number
+    failCount: number
+    currentProduct: string
+    isActive: boolean
+}
+
+const MAX_MESSAGE_LIMIT = 30 // Fixed limit due to Telegram rate limiting
+const DELAY_BETWEEN_SENDS = 4000 // 4 seconds between each product
+
 export default function TelegramBotPage() {
     // Tab state
     const [activeTab, setActiveTab] = useState<'products' | 'history'>('products')
@@ -38,6 +50,21 @@ export default function TelegramBotPage() {
 
     // Sending states
     const [sending, setSending] = useState(false)
+    const [progress, setProgress] = useState<SendProgress>({
+        current: 0,
+        total: 0,
+        successCount: 0,
+        failCount: 0,
+        currentProduct: '',
+        isActive: false
+    })
+    const abortControllerRef = useRef<AbortController | null>(null)
+
+    // Fixed message limit (Telegram rate limiting)
+    const messageLimit = MAX_MESSAGE_LIMIT
+
+    // Filter states
+    const [hidePreviouslySent, setHidePreviouslySent] = useState(false)
 
     // History states
     const [historyLogs, setHistoryLogs] = useState<TelegramLog[]>([])
@@ -59,13 +86,29 @@ export default function TelegramBotPage() {
 
     // Memoized filtered products
     const filteredProducts = useMemo(() => {
-        if (!debouncedQuery) return groupedProducts
-        const query = debouncedQuery.toLowerCase()
-        return groupedProducts.filter(product =>
-            product.urun_ismi.toLowerCase().includes(query) ||
-            product.stok_kodu?.toLowerCase().includes(query)
-        )
-    }, [groupedProducts, debouncedQuery])
+        let products = groupedProducts
+
+        // Filter by previously sent
+        if (hidePreviouslySent) {
+            products = products.filter(p => !p.previously_sent)
+        }
+
+        // Filter by search query
+        if (debouncedQuery) {
+            const query = debouncedQuery.toLowerCase()
+            products = products.filter(product =>
+                product.urun_ismi.toLowerCase().includes(query) ||
+                product.stok_kodu?.toLowerCase().includes(query)
+            )
+        }
+
+        return products
+    }, [groupedProducts, debouncedQuery, hidePreviouslySent])
+
+    // Count of previously sent products
+    const previouslySentCount = useMemo(() => {
+        return groupedProducts.filter(p => p.previously_sent).length
+    }, [groupedProducts])
 
     // Load data on mount
     useEffect(() => {
@@ -165,26 +208,49 @@ export default function TelegramBotPage() {
             if (newSelected.has(id)) {
                 newSelected.delete(id)
             } else {
+                // Check message limit
+                if (newSelected.size >= messageLimit) {
+                    return prev // Don't add more
+                }
                 newSelected.add(id)
             }
             return newSelected
         })
-    }, [])
+    }, [messageLimit])
 
     const selectAll = useCallback(() => {
         setSelectedIds(prev => {
-            if (prev.size === filteredProducts.length) {
+            if (prev.size === Math.min(filteredProducts.length, messageLimit)) {
                 return new Set()
             } else {
-                return new Set(filteredProducts.map(p => p.id))
+                // Select up to messageLimit
+                const idsToSelect = filteredProducts.slice(0, messageLimit).map(p => p.id)
+                return new Set(idsToSelect)
             }
         })
-    }, [filteredProducts])
+    }, [filteredProducts, messageLimit])
 
-    // Send to Telegram
+    // Cancel sending
+    const cancelSending = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort()
+            abortControllerRef.current = null
+        }
+        setSending(false)
+        setProgress(prev => ({ ...prev, isActive: false }))
+    }, [])
+
+    // Send to Telegram - Individual product sending
     const handleSendToTelegram = async () => {
         if (selectedIds.size === 0) {
             setError('Lütfen göndermek istediğiniz ürünleri seçin')
+            return
+        }
+
+        const productsToSend = groupedProducts.filter(p => selectedIds.has(p.id))
+
+        if (productsToSend.length > messageLimit) {
+            setError(`Maksimum ${messageLimit} ürün seçebilirsiniz`)
             return
         }
 
@@ -192,36 +258,80 @@ export default function TelegramBotPage() {
         setError(null)
         setSuccess(null)
 
-        try {
-            const productsToSend = groupedProducts.filter(p => selectedIds.has(p.id))
+        abortControllerRef.current = new AbortController()
 
-            const response = await fetch('/api/ikas-grouped-products/send-telegram', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ products: productsToSend }),
-            })
+        setProgress({
+            current: 0,
+            total: productsToSend.length,
+            successCount: 0,
+            failCount: 0,
+            currentProduct: '',
+            isActive: true
+        })
 
-            const data = await response.json()
+        let successCount = 0
+        let failCount = 0
+        const sentProductIds: string[] = []
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Gönderim hatası')
+        for (let i = 0; i < productsToSend.length; i++) {
+            // Check if cancelled
+            if (abortControllerRef.current?.signal.aborted) {
+                break
             }
 
-            setSuccess(data.message)
+            const product = productsToSend[i]
 
-            // Remove sent products from list
-            const sentIds = new Set(data.results.filter((r: any) => r.success).map((r: any) => r.productId))
-            setGroupedProducts(prev => prev.filter(p => !sentIds.has(p.id)))
-            setSelectedIds(new Set())
+            setProgress(prev => ({
+                ...prev,
+                current: i + 1,
+                currentProduct: product.urun_ismi
+            }))
 
-            // Refresh history
-            loadHistory()
+            try {
+                const response = await fetch('/api/ikas-grouped-products/send-single', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product }),
+                    signal: abortControllerRef.current?.signal
+                })
 
-        } catch (err: any) {
-            setError(err.message)
-        } finally {
-            setSending(false)
+                const data = await response.json()
+
+                if (data.success) {
+                    successCount++
+                    sentProductIds.push(product.id)
+                    setProgress(prev => ({ ...prev, successCount }))
+                } else {
+                    failCount++
+                    setProgress(prev => ({ ...prev, failCount }))
+                }
+            } catch (err: any) {
+                if (err.name === 'AbortError') {
+                    break
+                }
+                failCount++
+                setProgress(prev => ({ ...prev, failCount }))
+                console.error(`Error sending ${product.urun_ismi}:`, err)
+            }
+
+            // Wait between sends (except for last one)
+            if (i < productsToSend.length - 1 && !abortControllerRef.current?.signal.aborted) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_SENDS))
+            }
         }
+
+        // Update UI
+        setGroupedProducts(prev => prev.filter(p => !sentProductIds.includes(p.id)))
+        setSelectedIds(new Set())
+
+        if (successCount > 0 || failCount > 0) {
+            setSuccess(`${successCount} ürün başarıyla gönderildi${failCount > 0 ? `, ${failCount} ürün gönderilemedi` : ''}`)
+        }
+
+        loadHistory()
+        setSending(false)
+        setProgress(prev => ({ ...prev, isActive: false }))
+        abortControllerRef.current = null
     }
 
     // Format date for history
@@ -277,6 +387,9 @@ export default function TelegramBotPage() {
 
     const historyGroups = groupHistoryByBatch()
 
+    // Progress percentage
+    const progressPercentage = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0
+
     return (
         <div className="max-w-7xl mx-auto">
             {/* Header */}
@@ -327,7 +440,7 @@ export default function TelegramBotPage() {
                 </div>
             )}
 
-            {success && (
+            {success && !progress.isActive && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
@@ -337,6 +450,58 @@ export default function TelegramBotPage() {
                     <button onClick={() => setSuccess(null)} className="text-green-400 hover:text-green-600">
                         <XCircle className="w-5 h-5" />
                     </button>
+                </div>
+            )}
+
+            {/* Progress Bar */}
+            {progress.isActive && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-900">Gönderiliyor...</h3>
+                                <p className="text-sm text-slate-500 truncate max-w-md">{progress.currentProduct}</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={cancelSending}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                        >
+                            <XCircle className="w-4 h-4" />
+                            İptal Et
+                        </button>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="relative h-4 bg-slate-100 rounded-full overflow-hidden mb-3">
+                        <div
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-300"
+                            style={{ width: `${progressPercentage}%` }}
+                        />
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-4">
+                            <span className="text-slate-600">
+                                <span className="font-semibold text-slate-900">{progress.current}</span> / {progress.total}
+                            </span>
+                            <span className="text-green-600">
+                                <CheckCircle2 className="w-4 h-4 inline mr-1" />
+                                {progress.successCount} başarılı
+                            </span>
+                            {progress.failCount > 0 && (
+                                <span className="text-red-600">
+                                    <XCircle className="w-4 h-4 inline mr-1" />
+                                    {progress.failCount} başarısız
+                                </span>
+                            )}
+                        </div>
+                        <span className="font-semibold text-violet-600">{progressPercentage}%</span>
+                    </div>
                 </div>
             )}
 
@@ -396,24 +561,57 @@ export default function TelegramBotPage() {
                         )}
                     </div>
 
-                    {/* Send to Telegram Button */}
+                    {/* Send Settings & Button */}
                     {groupedProducts.length > 0 && (
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
+                            {/* Message Limit Info */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-amber-900">Telegram Rate Limit Uyarısı</p>
+                                        <p className="text-sm text-amber-700 mt-1">
+                                            Telegram API rate limiting nedeniyle, her gönderimde maksimum <strong>{messageLimit}</strong> ürün gönderilebilir.
+                                            Her ürün arasında 4 saniye bekleme süresi uygulanmaktadır.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex flex-wrap items-center gap-4">
+                                    {/* Select All */}
                                     <button
                                         onClick={selectAll}
-                                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                                        disabled={sending}
+                                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors disabled:opacity-50"
                                     >
-                                        {selectedIds.size === groupedProducts.length ? (
+                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? (
                                             <CheckSquare className="w-4 h-4" />
                                         ) : (
                                             <Square className="w-4 h-4" />
                                         )}
-                                        {selectedIds.size === groupedProducts.length ? 'Seçimi Kaldır' : 'Tümünü Seç'}
+                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? 'Seçimi Kaldır' : `İlk ${Math.min(filteredProducts.length, messageLimit)} Ürünü Seç`}
                                     </button>
+
+
+
+                                    {/* Filter: Hide previously sent */}
+                                    {previouslySentCount > 0 && (
+                                        <button
+                                            onClick={() => setHidePreviouslySent(!hidePreviouslySent)}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${hidePreviouslySent
+                                                ? 'bg-violet-100 text-violet-700 border border-violet-300'
+                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            {hidePreviouslySent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            {hidePreviouslySent ? 'Gönderilenleri Göster' : `Gönderilenleri Gizle (${previouslySentCount})`}
+                                        </button>
+                                    )}
+
                                     <span className="text-sm text-slate-600">
-                                        {selectedIds.size} ürün seçildi
+                                        <strong>{selectedIds.size}</strong> / {messageLimit} ürün seçildi
                                     </span>
                                 </div>
 
@@ -447,7 +645,10 @@ export default function TelegramBotPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-lg font-semibold text-slate-900">Kayıtlı Ürünler</h2>
-                                    <p className="text-sm text-slate-500">{groupedProducts.length} ürün grubu veritabanında</p>
+                                    <p className="text-sm text-slate-500">
+                                        {filteredProducts.length} ürün gösteriliyor
+                                        {hidePreviouslySent && ` (${previouslySentCount} gizli)`}
+                                    </p>
                                 </div>
                             </div>
 
@@ -490,14 +691,26 @@ export default function TelegramBotPage() {
                                     Excel dosyanızı yukarıdan yükleyerek başlayın
                                 </p>
                             </div>
+                        ) : filteredProducts.length === 0 ? (
+                            <div className="text-center py-12">
+                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Filter className="w-8 h-8 text-slate-400" />
+                                </div>
+                                <h3 className="text-lg font-medium text-slate-900 mb-2">
+                                    Filtreye uygun ürün bulunamadı
+                                </h3>
+                                <p className="text-sm text-slate-500">
+                                    Arama kriterlerinizi veya filtreleri değiştirin
+                                </p>
+                            </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                         <tr className="border-b border-slate-200">
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 w-12">
-                                                <button onClick={selectAll} className="hover:text-violet-600">
-                                                    {selectedIds.size === filteredProducts.length && filteredProducts.length > 0 ? (
+                                                <button onClick={selectAll} className="hover:text-violet-600" disabled={sending}>
+                                                    {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? (
                                                         <CheckSquare className="w-5 h-5 text-violet-600" />
                                                     ) : (
                                                         <Square className="w-5 h-5" />
@@ -521,12 +734,13 @@ export default function TelegramBotPage() {
                                                         ? 'bg-violet-50 hover:bg-violet-100'
                                                         : 'hover:bg-slate-50'
                                                     }`}
-                                                onClick={() => toggleSelect(product.id)}
+                                                onClick={() => !sending && toggleSelect(product.id)}
                                             >
                                                 <td className="py-3 px-4">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); toggleSelect(product.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); !sending && toggleSelect(product.id); }}
                                                         className="hover:text-violet-600"
+                                                        disabled={sending}
                                                     >
                                                         {selectedIds.has(product.id) ? (
                                                             <CheckSquare className="w-5 h-5 text-violet-600" />
