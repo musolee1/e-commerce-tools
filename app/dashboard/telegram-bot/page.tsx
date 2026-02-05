@@ -561,84 +561,9 @@ export default function TelegramBotPage() {
                         )}
                     </div>
 
-                    {/* Send Settings & Button */}
-                    {groupedProducts.length > 0 && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-                            {/* Message Limit Info */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-                                <div className="flex items-start gap-3">
-                                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-medium text-amber-900">Telegram Rate Limit Uyarısı</p>
-                                        <p className="text-sm text-amber-700 mt-1">
-                                            Telegram API rate limiting nedeniyle, her gönderimde maksimum <strong>{messageLimit}</strong> ürün gönderilebilir.
-                                            Her ürün arasında 4 saniye bekleme süresi uygulanmaktadır.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="flex flex-wrap items-center gap-4">
-                                    {/* Select All */}
-                                    <button
-                                        onClick={selectAll}
-                                        disabled={sending}
-                                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors disabled:opacity-50"
-                                    >
-                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? (
-                                            <CheckSquare className="w-4 h-4" />
-                                        ) : (
-                                            <Square className="w-4 h-4" />
-                                        )}
-                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? 'Seçimi Kaldır' : `İlk ${Math.min(filteredProducts.length, messageLimit)} Ürünü Seç`}
-                                    </button>
-
-
-
-                                    {/* Filter: Hide previously sent */}
-                                    {previouslySentCount > 0 && (
-                                        <button
-                                            onClick={() => setHidePreviouslySent(!hidePreviouslySent)}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${hidePreviouslySent
-                                                ? 'bg-violet-100 text-violet-700 border border-violet-300'
-                                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                                }`}
-                                        >
-                                            {hidePreviouslySent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                            {hidePreviouslySent ? 'Gönderilenleri Göster' : `Gönderilenleri Gizle (${previouslySentCount})`}
-                                        </button>
-                                    )}
-
-                                    <span className="text-sm text-slate-600">
-                                        <strong>{selectedIds.size}</strong> / {messageLimit} ürün seçildi
-                                    </span>
-                                </div>
-
-                                <button
-                                    onClick={handleSendToTelegram}
-                                    disabled={sending || selectedIds.size === 0}
-                                    className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/30"
-                                >
-                                    {sending ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Gönderiliyor...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Send className="w-5 h-5" />
-                                            Telegram'a Gönder ({selectedIds.size})
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Products Table */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
                                     <Package className="w-5 h-5 text-violet-600" />
@@ -661,6 +586,63 @@ export default function TelegramBotPage() {
                                 Yenile
                             </button>
                         </div>
+
+                        {/* Action Bar */}
+                        {groupedProducts.length > 0 && (
+                            <div className="flex flex-wrap items-center justify-between gap-4 mb-4 p-4 bg-slate-50 rounded-xl">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {/* Select All */}
+                                    <button
+                                        onClick={selectAll}
+                                        disabled={sending}
+                                        className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg transition-colors border border-slate-200 disabled:opacity-50 text-sm"
+                                    >
+                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? (
+                                            <CheckSquare className="w-4 h-4" />
+                                        ) : (
+                                            <Square className="w-4 h-4" />
+                                        )}
+                                        {selectedIds.size === Math.min(filteredProducts.length, messageLimit) && filteredProducts.length > 0 ? 'Seçimi Kaldır' : `Tümünü Seç`}
+                                    </button>
+
+                                    {/* Filter: Hide previously sent */}
+                                    {previouslySentCount > 0 && (
+                                        <button
+                                            onClick={() => setHidePreviouslySent(!hidePreviouslySent)}
+                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${hidePreviouslySent
+                                                    ? 'bg-violet-100 text-violet-700 border border-violet-300'
+                                                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                                }`}
+                                        >
+                                            {hidePreviouslySent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            {hidePreviouslySent ? 'Gönderilenleri Göster' : `Gönderilenleri Gizle (${previouslySentCount})`}
+                                        </button>
+                                    )}
+
+                                    <span className="text-sm text-slate-600">
+                                        <strong>{selectedIds.size}</strong> ürün seçildi
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={handleSendToTelegram}
+                                    disabled={sending || selectedIds.size === 0}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/30"
+                                >
+                                    {sending ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Gönderiliyor...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-4 h-4" />
+                                            Telegram'a Gönder ({selectedIds.size})
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
 
                         {/* Search Input */}
                         {groupedProducts.length > 0 && (
