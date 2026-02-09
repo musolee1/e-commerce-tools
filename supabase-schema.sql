@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   ikas_client_id TEXT,
   ikas_client_secret TEXT,
   ikas_store_name TEXT DEFAULT 'swassonline',
+  ikas_excel_mapping JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

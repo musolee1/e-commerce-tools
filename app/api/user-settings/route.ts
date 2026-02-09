@@ -35,6 +35,7 @@ export async function GET() {
                 ikas_client_id: null,
                 ikas_client_secret: null,
                 ikas_store_name: null,
+                ikas_excel_mapping: null,
             })
         }
 
@@ -71,6 +72,11 @@ export async function POST(request: NextRequest) {
             ikas_client_id,
             ikas_client_secret,
             ikas_store_name,
+            ikas_excel_mapping,
+            contact_phone,
+            contact_whatsapp,
+            label_stock_code,
+            label_size_range,
         } = body
 
         // Check if settings exist
@@ -96,6 +102,11 @@ export async function POST(request: NextRequest) {
                     ikas_client_id,
                     ikas_client_secret,
                     ikas_store_name,
+                    ikas_excel_mapping,
+                    contact_phone,
+                    contact_whatsapp,
+                    label_stock_code,
+                    label_size_range,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('user_id', user.id)
@@ -121,6 +132,11 @@ export async function POST(request: NextRequest) {
                     ikas_client_id,
                     ikas_client_secret,
                     ikas_store_name,
+                    ikas_excel_mapping,
+                    contact_phone,
+                    contact_whatsapp,
+                    label_stock_code,
+                    label_size_range,
                 })
                 .select()
                 .single()

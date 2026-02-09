@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         // Get user settings
         const { data: settings } = await supabase
             .from('user_settings')
-            .select('telegram_bot_token, telegram_chat_id')
+            .select('telegram_bot_token, telegram_chat_id, contact_phone, contact_whatsapp, label_stock_code, label_size_range')
             .eq('user_id', user.id)
             .single()
 
@@ -58,16 +58,20 @@ export async function POST(request: NextRequest) {
         // Retry loop with exponential backoff
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
+                const contactPhone = settings?.contact_phone ? `\n📞 ${settings.contact_phone}` : ''
+                const contactWhatsapp = settings?.contact_whatsapp ? `\nWhatsapp: ${settings.contact_whatsapp}` : ''
+
+                const labelStockCode = settings?.label_stock_code || 'Stok Kodu'
+                const labelSizeRange = settings?.label_size_range || 'Beden Aralığı'
+
                 // Prepare message in the requested format
                 const message = `${product.urun_ismi}
-Stok Kodu: ${product.stok_kodu}
-Beden Aralığı: ${product.varyant_degerler}
-📞 +90 553 407 26 66
-Whatsapp: https://wa.me/905534072666`
+${labelStockCode}: ${product.stok_kodu}
+${labelSizeRange}: ${product.varyant_degerler}${contactPhone}${contactWhatsapp}`
 
-                // Process image URLs
+                // Process image URLs - split by ; or ,
                 const urlList = product.resim_urlleri
-                    .split(';')
+                    .split(/[;,]/) // Split by semicolon OR comma
                     .map((url) => url.trim())
                     .filter((url) => url)
                     .slice(0, 10)

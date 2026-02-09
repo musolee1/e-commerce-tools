@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Upload, Send, Package, AlertCircle, CheckCircle2, Loader2, Database, Trash2, Image, RefreshCw, History, XCircle, CheckSquare, Square, Filter, Eye, EyeOff } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Upload, Send, Package, AlertCircle, CheckCircle2, Loader2, Database, Trash2, Image, RefreshCw, History, XCircle, CheckSquare, Square, Filter, Eye, EyeOff, X } from 'lucide-react'
 
 interface GroupedProduct {
     id: string
@@ -32,6 +32,8 @@ interface SendProgress {
     currentProduct: string
     isActive: boolean
 }
+
+import ExcelColumnMapper, { ColumnMapping, ExcelColumn, MappingFieldType } from '@/components/ExcelColumnMapper'
 
 const MAX_MESSAGE_LIMIT = 30 // Fixed limit due to Telegram rate limiting
 const DELAY_BETWEEN_SENDS = 4000 // 4 seconds between each product
@@ -75,6 +77,14 @@ export default function TelegramBotPage() {
     const [success, setSuccess] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [debouncedQuery, setDebouncedQuery] = useState('')
+
+    // Column mapping modal states
+    const [showColumnModal, setShowColumnModal] = useState(false)
+    const [previewColumns, setPreviewColumns] = useState<ExcelColumn[]>([])
+    const [columnMappings, setColumnMappings] = useState<Record<string, MappingFieldType>>({})
+    const [pendingFile, setPendingFile] = useState<File | null>(null)
+    const [previewLoading, setPreviewLoading] = useState(false)
+    const [totalPreviewRows, setTotalPreviewRows] = useState(0)
 
     // Debounce search query
     useEffect(() => {
@@ -146,6 +156,8 @@ export default function TelegramBotPage() {
         }
     }, [])
 
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
     const handleGroupedFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0]
         if (!selectedFile) return
@@ -155,8 +167,105 @@ export default function TelegramBotPage() {
         setSuccess(null)
 
         try {
+            // Attempt 1: Upload directly (using saved mapping or defaults)
             const formData = new FormData()
             formData.append('file', selectedFile)
+
+            const response = await fetch('/api/ikas-grouped-products/upload', {
+                method: 'POST',
+                body: formData,
+            })
+
+            const data = await response.json()
+
+            // Check if it's the specific "mapping needed" error
+            if (response.status === 400 && data.error?.includes('Kolon eşleştirmesi bulunamadı')) {
+                // Mapping needed. Load preview and show modal.
+                setPendingFile(selectedFile)
+                await loadPreview(selectedFile)
+                return
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Dosya işlenirken hata oluştu')
+            }
+
+            // Success
+            setSuccess(`${data.totalRows} satır işlendi, ${data.groupedCount} ürün grubu veritabanına kaydedildi!`)
+            loadGroupedProducts()
+            setSelectedIds(new Set())
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        } catch (err: any) {
+            setError(err.message)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        } finally {
+            // Only stop spinner if we didn't start the preview flow
+            if (!pendingFile) {
+                setUploadingGrouped(false)
+            }
+        }
+    }
+
+    const loadPreview = async (file: File) => {
+        setUploadingGrouped(false) // Stop upload spinner, start preview spinner
+        setPreviewLoading(true)
+
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await fetch('/api/ikas-grouped-products/column-preview', {
+                method: 'POST',
+                body: formData,
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Dosya analiz edilemedi')
+            }
+
+            setPreviewColumns(data.columns || [])
+            setTotalPreviewRows(data.totalRows || 0)
+            setColumnMappings({})
+            setShowColumnModal(true)
+        } catch (err: any) {
+            setError(err.message)
+            setPendingFile(null)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        } finally {
+            setPreviewLoading(false)
+        }
+    }
+
+    const handleColumnMappingSave = async (mapping: Record<string, MappingFieldType>) => {
+        if (!pendingFile) return
+
+        setUploadingGrouped(true)
+        setShowColumnModal(false)
+        setError(null)
+
+        try {
+            // Build column mapping object
+            const apiMapping: ColumnMapping = {
+                urunGrupId: '',
+                isim: '',
+                stok: ''
+            }
+
+            for (const [columnName, fieldType] of Object.entries(mapping)) {
+                if (fieldType === 'ignore') continue
+                if (fieldType === 'urunGrupId') apiMapping.urunGrupId = columnName
+                if (fieldType === 'isim') apiMapping.isim = columnName
+                if (fieldType === 'stok') apiMapping.stok = columnName
+                if (fieldType === 'varyantDeger1') apiMapping.varyantDeger1 = columnName
+                if (fieldType === 'resimUrl') apiMapping.resimUrl = columnName
+                if (fieldType === 'sku') apiMapping.sku = columnName
+            }
+
+            const formData = new FormData()
+            formData.append('file', pendingFile)
+            formData.append('columnMapping', JSON.stringify(apiMapping))
 
             const response = await fetch('/api/ikas-grouped-products/upload', {
                 method: 'POST',
@@ -171,13 +280,24 @@ export default function TelegramBotPage() {
 
             setSuccess(`${data.totalRows} satır işlendi, ${data.groupedCount} ürün grubu veritabanına kaydedildi!`)
             loadGroupedProducts()
-            setSelectedIds(new Set()) // Clear selections
+            setSelectedIds(new Set())
         } catch (err: any) {
             setError(err.message)
         } finally {
             setUploadingGrouped(false)
-            e.target.value = ''
+            setPendingFile(null)
+            setPreviewColumns([])
+            setColumnMappings({})
+            if (fileInputRef.current) fileInputRef.current.value = ''
         }
+    }
+
+    const closeColumnModal = () => {
+        setShowColumnModal(false)
+        setPendingFile(null)
+        setPreviewColumns([])
+        setColumnMappings({})
+        if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
     const clearGroupedProducts = async () => {
@@ -392,6 +512,16 @@ export default function TelegramBotPage() {
 
     return (
         <div className="max-w-7xl mx-auto">
+            {/* Column Mapping Modal */}
+            <ExcelColumnMapper
+                isOpen={showColumnModal}
+                onClose={closeColumnModal}
+                onSave={handleColumnMappingSave}
+                previewColumns={previewColumns}
+                totalRows={totalPreviewRows}
+                initialMapping={{}}
+            />
+
             {/* Header and Upload Section - Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 {/* Left Card: Header with Telegram branding */}
@@ -426,10 +556,11 @@ export default function TelegramBotPage() {
                     <div className="flex items-center gap-3">
                         <label className="flex-1">
                             <input
+                                ref={fileInputRef}
                                 type="file"
-                                accept=".xlsx,.xls"
+                                accept=".xlsx,.xls,.csv"
                                 onChange={handleGroupedFileUpload}
-                                disabled={uploadingGrouped || sending}
+                                disabled={uploadingGrouped || sending || previewLoading}
                                 className="block w-full text-sm text-slate-500
                                     file:mr-3 file:py-2 file:px-4
                                     file:rounded-lg file:border-0
@@ -456,10 +587,10 @@ export default function TelegramBotPage() {
                         )}
                     </div>
 
-                    {uploadingGrouped && (
+                    {(uploadingGrouped || previewLoading) && (
                         <div className="mt-3 flex items-center gap-2 text-emerald-600">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">Dosya işleniyor...</span>
+                            <span className="text-sm">{previewLoading ? 'Kolonlar okunuyor...' : 'Dosya işleniyor...'}</span>
                         </div>
                     )}
                 </div>

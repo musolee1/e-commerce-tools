@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Settings as SettingsIcon, Save, Loader2, CheckCircle2, AlertCircle, Upload, FileSpreadsheet, Trash2 } from 'lucide-react'
+import ExcelColumnMapper, { ColumnMapping, ExcelColumn, MappingFieldType } from '@/components/ExcelColumnMapper'
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(true)
@@ -13,6 +14,13 @@ export default function SettingsPage() {
     const [matchingCount, setMatchingCount] = useState(0)
     const [uploadingFile, setUploadingFile] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    // Excel Şablon State
+    const [excelTemplateInputRef] = useState<React.RefObject<HTMLInputElement>>(React.createRef())
+    const [showColumnModal, setShowColumnModal] = useState(false)
+    const [previewColumns, setPreviewColumns] = useState<ExcelColumn[]>([])
+    const [totalPreviewRows, setTotalPreviewRows] = useState(0)
+    const [uploadingTemplate, setUploadingTemplate] = useState(false)
 
     const [settings, setSettings] = useState({
         telegram_bot_token: '',
@@ -26,6 +34,11 @@ export default function SettingsPage() {
         ikas_client_id: '',
         ikas_client_secret: '',
         ikas_store_name: '',
+        ikas_excel_mapping: null as Record<string, MappingFieldType> | null,
+        contact_phone: '',
+        contact_whatsapp: '',
+        label_stock_code: 'Stok Kodu',
+        label_size_range: 'Beden Aralığı',
     })
 
     useEffect(() => {
@@ -50,6 +63,11 @@ export default function SettingsPage() {
                     ikas_client_id: data.ikas_client_id || '',
                     ikas_client_secret: data.ikas_client_secret || '',
                     ikas_store_name: data.ikas_store_name || '',
+                    ikas_excel_mapping: data.ikas_excel_mapping || null,
+                    contact_phone: data.contact_phone || '',
+                    contact_whatsapp: data.contact_whatsapp || '',
+                    label_stock_code: data.label_stock_code || 'Stok Kodu',
+                    label_size_range: data.label_size_range || 'Beden Aralığı',
                 })
             }
         } catch (err: any) {
@@ -76,7 +94,7 @@ export default function SettingsPage() {
         loadMatchingCount()
     }, [])
 
-    // Excel dosyası yükle
+    // Excel dosyası yükle (Matching için)
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -111,6 +129,64 @@ export default function SettingsPage() {
                 fileInputRef.current.value = ''
             }
         }
+    }
+
+    // Excel Şablonu Yükle
+    const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploadingTemplate(true)
+        setError(null)
+
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const response = await fetch('/api/ikas-grouped-products/column-preview', {
+                method: 'POST',
+                body: formData
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Dosya analiz edilemedi')
+            }
+
+            setPreviewColumns(data.columns)
+            setTotalPreviewRows(data.totalRows)
+            setShowColumnModal(true)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setUploadingTemplate(false)
+            if (excelTemplateInputRef.current) {
+                excelTemplateInputRef.current.value = ''
+            }
+        }
+    }
+
+    // Şablon Eşleşmesini Kaydet (Modal callback)
+    const handleTemplateSave = async (mapping: Record<string, MappingFieldType>) => {
+        setSettings(prev => ({
+            ...prev,
+            ikas_excel_mapping: mapping
+        }))
+        setShowColumnModal(false)
+
+        // Otomatik kaydet veya kullanıcıya "Ayarları Kaydet" butonuna basması gerektiğini söyle
+        // Burada kullanıcı deneyimi açısından "Kaydet" butonuna basmasını beklemek daha doğru olabilir
+        // Ama görsel olarak mapping'in seçildiğini göstermeliyiz.
+        setSuccess('✅ Şablon eşleşmesi seçildi. Kalıcı olması için "Kaydet" butonuna basın.')
+        setTimeout(() => setSuccess(null), 4000)
+    }
+
+    const deleteTemplate = () => {
+        if (!confirm('Kayıtlı Excel şablonunu silmek istediğinize emin misiniz?')) return
+        setSettings(prev => ({ ...prev, ikas_excel_mapping: null }))
+        setSuccess('✅ Şablon silindi. Kalıcı olması için "Kaydet" butonuna basın.')
+        setTimeout(() => setSuccess(null), 3000)
     }
 
     // Eşleştirme verilerini sil
@@ -409,11 +485,172 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
+                {/* Contact Settings */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
+                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span className="text-2xl">📱</span>
+                        İletişim Bilgileri
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Contact Phone */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                Telefon Numarası
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.contact_phone}
+                                onChange={(e) => setSettings({ ...settings, contact_phone: e.target.value })}
+                                placeholder="+90 5XX XXX XX XX"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Mesajın altına eklenecek telefon numarası
+                            </p>
+                        </div>
+
+                        {/* Contact Whatsapp */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                Whatsapp Linki
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.contact_whatsapp}
+                                onChange={(e) => setSettings({ ...settings, contact_whatsapp: e.target.value })}
+                                placeholder="https://wa.me/905XXXXXX"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Mesajın altına eklenecek Whatsapp linki
+                            </p>
+                        </div>
+
+                        {/* Label Stock Code */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                "Stok Kodu" Etiketi
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.label_stock_code}
+                                onChange={(e) => setSettings({ ...settings, label_stock_code: e.target.value })}
+                                placeholder="Stok Kodu"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Mesajdaki başlık (Örn: Model Kodu)
+                            </p>
+                        </div>
+
+                        {/* Label Size Range */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                "Beden Aralığı" Etiketi
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.label_size_range}
+                                onChange={(e) => setSettings({ ...settings, label_size_range: e.target.value })}
+                                placeholder="Beden Aralığı"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Mesajdaki başlık (Örn: Numaralar)
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Message Preview */}
+                    <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                            TELEGRAM MESAJ ÖNİZLEME
+                        </h3>
+                        <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 font-mono text-sm text-slate-700 whitespace-pre-wrap">
+                            <div className="text-slate-900 font-bold mb-1">Örnek Ürün İsmi</div>
+                            <div className="mb-1">{settings.label_stock_code || 'Stok Kodu'}: 12345</div>
+                            <div className="mb-2">{settings.label_size_range || 'Beden Aralığı'}: S, M, L</div>
+                            {(settings.contact_phone || settings.contact_whatsapp) ? (
+                                <>
+                                    {settings.contact_phone && <div>📞 {settings.contact_phone}</div>}
+                                    {settings.contact_whatsapp && <div>Whatsapp: {settings.contact_whatsapp}</div>}
+                                </>
+                            ) : (
+                                <div className="text-slate-400 italic text-xs mt-2">
+                                    (İletişim bilgileri girildiğinde burada görünecek)
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Excel Şablon Ayarı */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
+                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span className="text-2xl">📊</span>
+                        Excel Şablon Ayarı
+                    </h2>
+
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <FileSpreadsheet className={`w-8 h-8 ${settings.ikas_excel_mapping ? 'text-green-600' : 'text-slate-300'}`} />
+                                <div>
+                                    <p className="font-semibold text-slate-900">
+                                        {settings.ikas_excel_mapping ? 'Şablon Kayıtlı' : 'Şablon Tanımlanmamış'}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        {settings.ikas_excel_mapping
+                                            ? 'Telegram Bot sayfasına yüklenen Excel\'ler bu şablonla otomatik işlenecektir.'
+                                            : 'Excel yüklerken otomatik kolon eşleştirmesi için bir örnek dosya yükleyin.'}
+                                    </p>
+                                </div>
+                            </div>
+                            {settings.ikas_excel_mapping && (
+                                <button
+                                    type="button"
+                                    onClick={deleteTemplate}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Şablonu Sil"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
+
+                        <input
+                            type="file"
+                            ref={excelTemplateInputRef}
+                            onChange={handleTemplateUpload}
+                            accept=".xlsx,.xls,.csv"
+                            className="hidden"
+                            id="excel-template-input"
+                        />
+                        <label
+                            htmlFor="excel-template-input"
+                            className={`flex items-center justify-center gap-2 w-full py-3 px-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer transition-colors ${uploadingTemplate ? 'bg-slate-100 cursor-not-allowed' : 'hover:border-violet-400 hover:bg-violet-50'}`}
+                        >
+                            {uploadingTemplate ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
+                                    <span className="text-slate-600">Analiz ediliyor...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-5 h-5 text-violet-600" />
+                                    <span className="text-slate-600">Örnek Excel Yükle ve Eşleştir</span>
+                                </>
+                            )}
+                        </label>
+                    </div>
+                </div>
+
                 {/* Eşleştirme Dosyası */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
                     <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <span className="text-2xl">📎</span>
-                        Eşleştirme Dosyası
+                        Barkod Eşleştirme Dosyası
                     </h2>
 
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -488,6 +725,15 @@ export default function SettingsPage() {
                 </button>
             </form>
 
+            <ExcelColumnMapper
+                isOpen={showColumnModal}
+                onClose={() => setShowColumnModal(false)}
+                onSave={handleTemplateSave}
+                previewColumns={previewColumns}
+                totalRows={totalPreviewRows}
+                initialMapping={settings.ikas_excel_mapping || {}}
+            />
+
             {/* Info Card */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
                 <h3 className="text-sm font-semibold text-blue-900 mb-2">
@@ -495,7 +741,6 @@ export default function SettingsPage() {
                 </h3>
                 <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
                     <li>Bu ayarlar sadece sizin için geçerlidir</li>
-                    <li>Boş bırakırsanız, sistem varsayılan environment değişkenlerini kullanır</li>
                     <li>Ayarlarınız güvenli bir şekilde veritabanında saklanır</li>
                 </ul>
             </div>
