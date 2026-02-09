@@ -279,6 +279,18 @@ export default function TelegramBotPage() {
             }
 
             setSuccess(`${data.totalRows} satır işlendi, ${data.groupedCount} ürün grubu veritabanına kaydedildi!`)
+
+            // Auto-save the working mapping to user settings
+            try {
+                await fetch('/api/user-settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ikas_excel_mapping: apiMapping })
+                })
+            } catch (saveErr) {
+                console.error('Failed to auto-save mapping:', saveErr)
+            }
+
             loadGroupedProducts()
             setSelectedIds(new Set())
         } catch (err: any) {
