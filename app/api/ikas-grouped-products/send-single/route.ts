@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         // Get user settings
         const { data: settings } = await supabase
             .from('user_settings')
-            .select('telegram_bot_token, telegram_chat_id, contact_phone, contact_whatsapp, label_stock_code, label_size_range, label_whatsapp')
+            .select('*')
             .eq('user_id', user.id)
             .single()
 
