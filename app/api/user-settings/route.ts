@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
             contact_whatsapp,
             label_stock_code,
             label_size_range,
+            label_whatsapp,
         } = body
 
         // Check if settings exist
@@ -107,6 +108,7 @@ export async function POST(request: NextRequest) {
                     contact_whatsapp,
                     label_stock_code,
                     label_size_range,
+                    label_whatsapp,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('user_id', user.id)
@@ -137,6 +139,7 @@ export async function POST(request: NextRequest) {
                     contact_whatsapp,
                     label_stock_code,
                     label_size_range,
+                    label_whatsapp,
                 })
                 .select()
                 .single()

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         // Get user settings
         const { data: settings } = await supabase
             .from('user_settings')
-            .select('telegram_bot_token, telegram_chat_id, contact_phone, contact_whatsapp, label_stock_code, label_size_range')
+            .select('telegram_bot_token, telegram_chat_id, contact_phone, contact_whatsapp, label_stock_code, label_size_range, label_whatsapp')
             .eq('user_id', user.id)
             .single()
 
@@ -58,11 +58,12 @@ export async function POST(request: NextRequest) {
         // Retry loop with exponential backoff
         for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
-                const contactPhone = settings?.contact_phone ? `\n📞 ${settings.contact_phone}` : ''
-                const contactWhatsapp = settings?.contact_whatsapp ? `\nWhatsapp: ${settings.contact_whatsapp}` : ''
-
                 const labelStockCode = settings?.label_stock_code || 'Stok Kodu'
                 const labelSizeRange = settings?.label_size_range || 'Beden Aralığı'
+                const labelWhatsapp = settings?.label_whatsapp || 'Whatsapp'
+
+                const contactPhone = settings?.contact_phone ? `\n📞 ${settings.contact_phone}` : ''
+                const contactWhatsapp = settings?.contact_whatsapp ? `\n${labelWhatsapp}: ${settings.contact_whatsapp}` : ''
 
                 // Prepare message in the requested format
                 const message = `${product.urun_ismi}

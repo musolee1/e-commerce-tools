@@ -39,6 +39,7 @@ export default function SettingsPage() {
         contact_whatsapp: '',
         label_stock_code: 'Stok Kodu',
         label_size_range: 'Beden Aralığı',
+        label_whatsapp: 'Whatsapp',
     })
 
     useEffect(() => {
@@ -63,11 +64,27 @@ export default function SettingsPage() {
                     ikas_client_id: data.ikas_client_id || '',
                     ikas_client_secret: data.ikas_client_secret || '',
                     ikas_store_name: data.ikas_store_name || '',
-                    ikas_excel_mapping: data.ikas_excel_mapping || null,
+                    // Transform DB mapping (Type -> Column) to UI mapping (Column -> Type)
+                    ikas_excel_mapping: (() => {
+                        if (!data.ikas_excel_mapping) return null
+                        const dbMapping = data.ikas_excel_mapping as any
+                        const uiMapping: Record<string, MappingFieldType> = {}
+
+                        // Reverse the mapping
+                        if (dbMapping.urunGrupId) uiMapping[dbMapping.urunGrupId] = 'urunGrupId'
+                        if (dbMapping.isim) uiMapping[dbMapping.isim] = 'isim'
+                        if (dbMapping.varyantDeger1) uiMapping[dbMapping.varyantDeger1] = 'varyantDeger1'
+                        if (dbMapping.resimUrl) uiMapping[dbMapping.resimUrl] = 'resimUrl'
+                        if (dbMapping.stok) uiMapping[dbMapping.stok] = 'stok'
+                        if (dbMapping.sku) uiMapping[dbMapping.sku] = 'sku'
+
+                        return Object.keys(uiMapping).length > 0 ? uiMapping : null
+                    })(),
                     contact_phone: data.contact_phone || '',
                     contact_whatsapp: data.contact_whatsapp || '',
                     label_stock_code: data.label_stock_code || 'Stok Kodu',
                     label_size_range: data.label_size_range || 'Beden Aralığı',
+                    label_whatsapp: data.label_whatsapp || 'Whatsapp',
                 })
             }
         } catch (err: any) {
@@ -212,10 +229,35 @@ export default function SettingsPage() {
         setSuccess(null)
 
         try {
+            // Transform UI mapping (Column -> Type) to DB mapping (Type -> Column)
+            const mappingToSend = (() => {
+                if (!settings.ikas_excel_mapping) return null
+
+                const dbMapping: any = {
+                    urunGrupId: '',
+                    isim: '',
+                    stok: ''
+                }
+
+                for (const [col, type] of Object.entries(settings.ikas_excel_mapping)) {
+                    if (type === 'ignore') continue
+                    dbMapping[type] = col
+                }
+
+                // Only return if at least required fields are present
+                if (dbMapping.urunGrupId && dbMapping.isim && dbMapping.stok) {
+                    return dbMapping
+                }
+                return null
+            })()
+
             const response = await fetch('/api/user-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settings),
+                body: JSON.stringify({
+                    ...settings,
+                    ikas_excel_mapping: mappingToSend
+                }),
             })
 
             const data = await response.json()
@@ -527,6 +569,23 @@ export default function SettingsPage() {
                             </p>
                         </div>
 
+                        {/* Label Whatsapp */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                "Whatsapp" Etiketi
+                            </label>
+                            <input
+                                type="text"
+                                value={settings.label_whatsapp}
+                                onChange={(e) => setSettings({ ...settings, label_whatsapp: e.target.value })}
+                                placeholder="Whatsapp"
+                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                Whatsapp linkinin başındaki etiket (Örn: Sipariş Hattı)
+                            </p>
+                        </div>
+
                         {/* Label Stock Code */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -574,7 +633,7 @@ export default function SettingsPage() {
                             {(settings.contact_phone || settings.contact_whatsapp) ? (
                                 <>
                                     {settings.contact_phone && <div>📞 {settings.contact_phone}</div>}
-                                    {settings.contact_whatsapp && <div>Whatsapp: {settings.contact_whatsapp}</div>}
+                                    {settings.contact_whatsapp && <div>{settings.label_whatsapp || 'Whatsapp'}: {settings.contact_whatsapp}</div>}
                                 </>
                             ) : (
                                 <div className="text-slate-400 italic text-xs mt-2">

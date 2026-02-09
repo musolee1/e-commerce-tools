@@ -98,11 +98,17 @@ export async function POST(request: NextRequest) {
                 .single()
 
             if (settings?.ikas_excel_mapping) {
+                console.log('Found saved mapping:', settings.ikas_excel_mapping)
                 const mapping = settings.ikas_excel_mapping as ColumnMapping
                 // Validate that the mapping is not empty and has required fields
                 if (mapping && typeof mapping === 'object' && mapping.urunGrupId && mapping.isim && mapping.stok) {
                     columnMapping = mapping
+                    console.log('Using saved mapping')
+                } else {
+                    console.log('Saved mapping is invalid or missing required fields')
                 }
+            } else {
+                console.log('No saved mapping found for user', session.user.id)
             }
         }
 
