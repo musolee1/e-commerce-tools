@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
     try {
         // Get user session
         const supabase = await createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (userError || !user) {
             return NextResponse.json({ error: 'Oturum açmanız gerekiyor' }, { status: 401 })
         }
 
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
             const { data: settings } = await supabase
                 .from('user_settings')
                 .select('ikas_excel_mapping')
-                .eq('user_id', session.user.id)
+                .eq('user_id', user.id)
                 .single()
 
             if (settings?.ikas_excel_mapping) {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
                     console.log('Saved mapping is invalid or missing required fields')
                 }
             } else {
-                console.log('No saved mapping found for user', session.user.id)
+                console.log('No saved mapping found for user', user.id)
             }
         }
 
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
 
         // Save to database - upsert to update existing records
         const insertData = groupedProducts.map(p => ({
-            user_id: session.user.id,
+            user_id: user.id,
             urun_grup_id: p.urunGrupId,
             urun_ismi: p.urunIsmi,
             varyant_degerler: p.varyantDegerler,

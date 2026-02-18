@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Upload, Send, Package, AlertCircle, CheckCircle2, Loader2, Database, Trash2, Image, RefreshCw, History, XCircle, CheckSquare, Square, Filter, Eye, EyeOff, X } from 'lucide-react'
+import { useDataCache } from '@/components/DataCacheContext'
 
 interface GroupedProduct {
     id: string
@@ -39,12 +40,16 @@ const MAX_MESSAGE_LIMIT = 30 // Fixed limit due to Telegram rate limiting
 const DELAY_BETWEEN_SENDS = 4000 // 4 seconds between each product
 
 export default function TelegramBotPage() {
+    const {
+        groupedProducts, loadingGroupedProducts: loadingGrouped,
+        loadGroupedProducts: loadGroupedProductsCache,
+        setGroupedProducts, clearGroupedProducts: clearGroupedProductsCache,
+    } = useDataCache()
+
     // Tab state
     const [activeTab, setActiveTab] = useState<'products' | 'history'>('products')
 
     // Grouped products states
-    const [groupedProducts, setGroupedProducts] = useState<GroupedProduct[]>([])
-    const [loadingGrouped, setLoadingGrouped] = useState(false)
     const [uploadingGrouped, setUploadingGrouped] = useState(false)
 
     // Selection states
@@ -67,6 +72,7 @@ export default function TelegramBotPage() {
 
     // Filter states
     const [hidePreviouslySent, setHidePreviouslySent] = useState(false)
+    const [showImages, setShowImages] = useState(false)
 
     // History states
     const [historyLogs, setHistoryLogs] = useState<TelegramLog[]>([])
@@ -122,24 +128,13 @@ export default function TelegramBotPage() {
 
     // Load data on mount
     useEffect(() => {
-        loadGroupedProducts()
+        loadGroupedProductsCache()
         loadHistory()
     }, [])
 
     const loadGroupedProducts = useCallback(async () => {
-        setLoadingGrouped(true)
-        try {
-            const response = await fetch('/api/ikas-grouped-products')
-            if (response.ok) {
-                const data = await response.json()
-                setGroupedProducts(data.products || [])
-            }
-        } catch (err) {
-            console.error('Error loading grouped products:', err)
-        } finally {
-            setLoadingGrouped(false)
-        }
-    }, [])
+        await loadGroupedProductsCache(true) // force refresh
+    }, [loadGroupedProductsCache])
 
     const loadHistory = useCallback(async () => {
         setLoadingHistory(true)
@@ -321,7 +316,7 @@ export default function TelegramBotPage() {
             })
 
             if (response.ok) {
-                setGroupedProducts([])
+                clearGroupedProductsCache()
                 setSelectedIds(new Set())
                 setSuccess('Tüm ürünler silindi')
             } else {
@@ -537,7 +532,7 @@ export default function TelegramBotPage() {
             {/* Header and Upload Section - Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 {/* Left Card: Header with Telegram branding */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center gap-4">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center gap-4">
                     <div className="w-14 h-14 bg-gradient-to-br from-sky-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/30 flex-shrink-0">
                         <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
@@ -547,9 +542,6 @@ export default function TelegramBotPage() {
                         <h1 className="text-2xl font-bold text-slate-900">
                             Telegram Gönderilerim
                         </h1>
-                        <p className="text-sm text-slate-600">
-                            Ürünleri seçin ve Telegram kanalınıza gönderin
-                        </p>
                     </div>
                 </div>
 
@@ -772,6 +764,18 @@ export default function TelegramBotPage() {
                                         </button>
                                     )}
 
+                                    {/* Toggle images */}
+                                    <button
+                                        onClick={() => setShowImages(!showImages)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${showImages
+                                            ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                            : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                            }`}
+                                    >
+                                        {showImages ? <EyeOff className="w-4 h-4" /> : <Image className="w-4 h-4" />}
+                                        {showImages ? 'Görselleri Gizle' : 'Görselleri Göster'}
+                                    </button>
+
                                     <span className="text-sm text-slate-600">
                                         <strong>{selectedIds.size}</strong> ürün seçildi
                                     </span>
@@ -852,11 +856,16 @@ export default function TelegramBotPage() {
                                                     )}
                                                 </button>
                                             </th>
+                                            {showImages && (
+                                                <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700 w-16">Görsel</th>
+                                            )}
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Stok Kodu</th>
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Ürün İsmi</th>
                                             <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Varyantlar</th>
                                             <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Toplam Stok</th>
-                                            <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Resimler</th>
+                                            {!showImages && (
+                                                <th className="text-center py-3 px-4 text-sm font-semibold text-slate-700">Resimler</th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -884,6 +893,22 @@ export default function TelegramBotPage() {
                                                         )}
                                                     </button>
                                                 </td>
+                                                {showImages && (
+                                                    <td className="py-2 px-4 text-center">
+                                                        {product.resim_urlleri ? (
+                                                            <img
+                                                                src={product.resim_urlleri.split(';')[0]}
+                                                                alt={product.urun_ismi}
+                                                                className="w-12 h-12 object-cover rounded-lg border border-slate-200 mx-auto"
+                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center mx-auto">
+                                                                <Image className="w-4 h-4 text-slate-400" />
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                )}
                                                 <td className={`py-3 px-4 text-sm font-mono ${product.previously_sent ? 'text-red-600' : 'text-slate-600'}`}>{product.stok_kodu}</td>
                                                 <td className="py-3 px-4 text-sm text-slate-900">
                                                     <div className="flex items-center gap-2">
@@ -912,14 +937,16 @@ export default function TelegramBotPage() {
                                                         {product.toplam_stok}
                                                     </span>
                                                 </td>
-                                                <td className="py-3 px-4 text-center">
-                                                    {product.resim_urlleri && (
-                                                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                                                            <Image className="w-3 h-3" />
-                                                            {product.resim_urlleri.split(';').filter(u => u).length}
-                                                        </span>
-                                                    )}
-                                                </td>
+                                                {!showImages && (
+                                                    <td className="py-3 px-4 text-center">
+                                                        {product.resim_urlleri && (
+                                                            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                                                <Image className="w-3 h-3" />
+                                                                {product.resim_urlleri.split(';').filter(u => u).length}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>

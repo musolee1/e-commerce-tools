@@ -1,91 +1,89 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Settings as SettingsIcon, Save, Loader2, CheckCircle2, AlertCircle, Upload, FileSpreadsheet, Trash2 } from 'lucide-react'
-import ExcelColumnMapper, { ColumnMapping, ExcelColumn, MappingFieldType } from '@/components/ExcelColumnMapper'
+import { Settings as SettingsIcon, Save, Loader2, CheckCircle2, AlertCircle, Send, Instagram, Package, TrendingUp, Upload, Trash2, FileSpreadsheet } from 'lucide-react'
+import { useDataCache } from '@/components/DataCacheContext'
+
+type TabType = 'telegram' | 'instagram' | 'ikas' | 'trendyol'
 
 export default function SettingsPage() {
+    const { userSettings: cachedSettings, loadUserSettings, updateUserSettings: updateSettingsCache } = useDataCache()
+    const [activeTab, setActiveTab] = useState<TabType>('telegram')
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [success, setSuccess] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
-
-    // Eşleştirme dosyası state
-    const [matchingCount, setMatchingCount] = useState(0)
-    const [uploadingFile, setUploadingFile] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
-
-    // Excel Şablon State
-    const [excelTemplateInputRef] = useState<React.RefObject<HTMLInputElement>>(React.createRef())
-    const [showColumnModal, setShowColumnModal] = useState(false)
-    const [previewColumns, setPreviewColumns] = useState<ExcelColumn[]>([])
-    const [totalPreviewRows, setTotalPreviewRows] = useState(0)
-    const [uploadingTemplate, setUploadingTemplate] = useState(false)
+    const [matchingCount, setMatchingCount] = useState<number>(0)
+    const [uploadingMatching, setUploadingMatching] = useState(false)
+    const [deletingMatching, setDeletingMatching] = useState(false)
+    const matchingFileRef = useRef<HTMLInputElement>(null)
 
     const [settings, setSettings] = useState({
+        // Telegram
         telegram_bot_token: '',
         telegram_chat_id: '',
-        site_url: '',
-        site_products_api_url: '',
-        site_update_price_api_url: '',
-        trendyol_target_url: '',
-        trendyol_brand_slug: '',
-        replace_genel_markalar: false,
-        ikas_client_id: '',
-        ikas_client_secret: '',
-        ikas_store_name: '',
-        ikas_excel_mapping: null as Record<string, MappingFieldType> | null,
         contact_phone: '',
         contact_whatsapp: '',
         label_stock_code: 'Stok Kodu',
         label_size_range: 'Beden Aralığı',
         label_whatsapp: 'Whatsapp',
+
+        // Instagram
+        instagram_access_token: '',
+        instagram_account_id: '',
+        instagram_location_id: '',
+
+        // IKAS
+        ikas_client_id: '',
+        ikas_client_secret: '',
+        ikas_store_name: '',
+        site_url: '',
+        site_products_api_url: '',
+        site_update_price_api_url: '',
+        ikas_excel_mapping: null as any,
+
+        // Trendyol
+        trendyol_target_url: '',
+        trendyol_brand_slug: '',
+        replace_genel_markalar: false,
     })
 
+    const populateSettings = (data: Record<string, any>) => {
+        setSettings({
+            telegram_bot_token: data.telegram_bot_token || '',
+            telegram_chat_id: data.telegram_chat_id || '',
+            contact_phone: data.contact_phone || '',
+            contact_whatsapp: data.contact_whatsapp || '',
+            label_stock_code: data.label_stock_code || 'Stok Kodu',
+            label_size_range: data.label_size_range || 'Beden Aralığı',
+            label_whatsapp: data.label_whatsapp || 'Whatsapp',
+            instagram_access_token: data.instagram_access_token || '',
+            instagram_account_id: data.instagram_account_id || '',
+            instagram_location_id: data.instagram_location_id || '',
+            ikas_client_id: data.ikas_client_id || '',
+            ikas_client_secret: data.ikas_client_secret || '',
+            ikas_store_name: data.ikas_store_name || '',
+            site_url: data.site_url || '',
+            site_products_api_url: data.site_products_api_url || '',
+            site_update_price_api_url: data.site_update_price_api_url || '',
+            ikas_excel_mapping: data.ikas_excel_mapping || null,
+            trendyol_target_url: data.trendyol_target_url || '',
+            trendyol_brand_slug: data.trendyol_brand_slug || '',
+            replace_genel_markalar: data.replace_genel_markalar || false,
+        })
+    }
+
     useEffect(() => {
-        loadSettings()
+        loadSettingsFromCache()
+        loadMatchingCount()
     }, [])
 
-    const loadSettings = async () => {
+    const loadSettingsFromCache = async () => {
         try {
-            const response = await fetch('/api/user-settings')
-            const data = await response.json()
-
-            if (response.ok) {
-                setSettings({
-                    telegram_bot_token: data.telegram_bot_token || '',
-                    telegram_chat_id: data.telegram_chat_id || '',
-                    site_url: data.site_url || '',
-                    site_products_api_url: data.site_products_api_url || '',
-                    site_update_price_api_url: data.site_update_price_api_url || '',
-                    trendyol_target_url: data.trendyol_target_url || '',
-                    trendyol_brand_slug: data.trendyol_brand_slug || '',
-                    replace_genel_markalar: data.replace_genel_markalar || false,
-                    ikas_client_id: data.ikas_client_id || '',
-                    ikas_client_secret: data.ikas_client_secret || '',
-                    ikas_store_name: data.ikas_store_name || '',
-                    // Transform DB mapping (Type -> Column) to UI mapping (Column -> Type)
-                    ikas_excel_mapping: (() => {
-                        if (!data.ikas_excel_mapping) return null
-                        const dbMapping = data.ikas_excel_mapping as any
-                        const uiMapping: Record<string, MappingFieldType> = {}
-
-                        // Reverse the mapping
-                        if (dbMapping.urunGrupId) uiMapping[dbMapping.urunGrupId] = 'urunGrupId'
-                        if (dbMapping.isim) uiMapping[dbMapping.isim] = 'isim'
-                        if (dbMapping.varyantDeger1) uiMapping[dbMapping.varyantDeger1] = 'varyantDeger1'
-                        if (dbMapping.resimUrl) uiMapping[dbMapping.resimUrl] = 'resimUrl'
-                        if (dbMapping.stok) uiMapping[dbMapping.stok] = 'stok'
-                        if (dbMapping.sku) uiMapping[dbMapping.sku] = 'sku'
-
-                        return Object.keys(uiMapping).length > 0 ? uiMapping : null
-                    })(),
-                    contact_phone: data.contact_phone || '',
-                    contact_whatsapp: data.contact_whatsapp || '',
-                    label_stock_code: data.label_stock_code || 'Stok Kodu',
-                    label_size_range: data.label_size_range || 'Beden Aralığı',
-                    label_whatsapp: data.label_whatsapp || 'Whatsapp',
-                })
+            // Try cache first (instant if already loaded)
+            const cached = await loadUserSettings()
+            if (cached) {
+                populateSettings(cached)
             }
         } catch (err: any) {
             setError('Ayarlar yüklenirken hata oluştu')
@@ -94,7 +92,6 @@ export default function SettingsPage() {
         }
     }
 
-    // Eşleştirme verisi sayısını yükle
     const loadMatchingCount = async () => {
         try {
             const response = await fetch('/api/matching')
@@ -102,23 +99,15 @@ export default function SettingsPage() {
             if (response.ok) {
                 setMatchingCount(data.count || 0)
             }
-        } catch (err) {
-            console.error('Matching count error:', err)
-        }
+        } catch { }
     }
 
-    useEffect(() => {
-        loadMatchingCount()
-    }, [])
-
-    // Excel dosyası yükle (Matching için)
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleMatchingUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
 
-        setUploadingFile(true)
+        setUploadingMatching(true)
         setError(null)
-        setSuccess(null)
 
         try {
             const formData = new FormData()
@@ -131,133 +120,75 @@ export default function SettingsPage() {
 
             const data = await response.json()
 
-            if (response.ok) {
-                setSuccess(`✅ ${data.count} satır başarıyla yüklendi!`)
-                setMatchingCount(data.count)
-                setTimeout(() => setSuccess(null), 3000)
-            } else {
-                setError(data.error || 'Dosya yüklenemedi')
+            if (!response.ok) {
+                throw new Error(data.error || 'Dosya yüklenemedi')
             }
+
+            setSuccess(`${data.count} barkod eşleştirmesi başarıyla yüklendi!`)
+            setTimeout(() => setSuccess(null), 3000)
+            setMatchingCount(data.count)
         } catch (err: any) {
             setError(err.message)
         } finally {
-            setUploadingFile(false)
-            if (fileInputRef.current) {
-                fileInputRef.current.value = ''
-            }
+            setUploadingMatching(false)
+            if (matchingFileRef.current) matchingFileRef.current.value = ''
         }
     }
 
-    // Excel Şablonu Yükle
-    const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
+    const handleMatchingDelete = async () => {
+        if (!confirm('Tüm barkod eşleştirme verilerini silmek istediğinize emin misiniz?')) return
 
-        setUploadingTemplate(true)
+        setDeletingMatching(true)
         setError(null)
 
         try {
-            const formData = new FormData()
-            formData.append('file', file)
-
-            const response = await fetch('/api/ikas-grouped-products/column-preview', {
-                method: 'POST',
-                body: formData
-            })
-
+            const response = await fetch('/api/matching', { method: 'DELETE' })
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || 'Dosya analiz edilemedi')
+                throw new Error(data.error || 'Veriler silinemedi')
             }
 
-            setPreviewColumns(data.columns)
-            setTotalPreviewRows(data.totalRows)
-            setShowColumnModal(true)
+            setSuccess('Barkod eşleştirme verileri silindi')
+            setTimeout(() => setSuccess(null), 3000)
+            setMatchingCount(0)
         } catch (err: any) {
             setError(err.message)
         } finally {
-            setUploadingTemplate(false)
-            if (excelTemplateInputRef.current) {
-                excelTemplateInputRef.current.value = ''
-            }
+            setDeletingMatching(false)
         }
     }
 
-    // Şablon Eşleşmesini Kaydet (Modal callback)
-    const handleTemplateSave = async (mapping: Record<string, MappingFieldType>) => {
-        setSettings(prev => ({
-            ...prev,
-            ikas_excel_mapping: mapping
-        }))
-        setShowColumnModal(false)
-
-        // Otomatik kaydet veya kullanıcıya "Ayarları Kaydet" butonuna basması gerektiğini söyle
-        // Burada kullanıcı deneyimi açısından "Kaydet" butonuna basmasını beklemek daha doğru olabilir
-        // Ama görsel olarak mapping'in seçildiğini göstermeliyiz.
-        setSuccess('✅ Şablon eşleşmesi seçildi. Kalıcı olması için "Kaydet" butonuna basın.')
-        setTimeout(() => setSuccess(null), 4000)
-    }
-
-    const deleteTemplate = () => {
-        if (!confirm('Kayıtlı Excel şablonunu silmek istediğinize emin misiniz?')) return
-        setSettings(prev => ({ ...prev, ikas_excel_mapping: null }))
-        setSuccess('✅ Şablon silindi. Kalıcı olması için "Kaydet" butonuna basın.')
-        setTimeout(() => setSuccess(null), 3000)
-    }
-
-    // Eşleştirme verilerini sil
-    const deleteMatchingData = async () => {
-        if (!confirm('Tüm eşleştirme verilerini silmek istediğinize emin misiniz?')) return
+    const handleResetExcelMapping = async () => {
+        if (!confirm('Excel şablon eşleştirmesini sıfırlamak istediğinize emin misiniz?')) return
 
         try {
-            const response = await fetch('/api/matching', { method: 'DELETE' })
-            if (response.ok) {
-                setMatchingCount(0)
-                setSuccess('Eşleştirme verileri silindi')
-                setTimeout(() => setSuccess(null), 3000)
-            }
+            const response = await fetch('/api/user-settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ikas_excel_mapping: null }),
+            })
+
+            if (!response.ok) throw new Error('Sıfırlama başarısız')
+
+            setSettings(prev => ({ ...prev, ikas_excel_mapping: null }))
+            setSuccess('Excel şablon eşleştirmesi sıfırlandı')
+            setTimeout(() => setSuccess(null), 3000)
         } catch (err: any) {
             setError(err.message)
         }
     }
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const handleSave = async () => {
         setSaving(true)
         setError(null)
         setSuccess(null)
 
         try {
-            // Transform UI mapping (Column -> Type) to DB mapping (Type -> Column)
-            const mappingToSend = (() => {
-                if (!settings.ikas_excel_mapping) return null
-
-                const dbMapping: any = {
-                    urunGrupId: '',
-                    isim: '',
-                    stok: ''
-                }
-
-                for (const [col, type] of Object.entries(settings.ikas_excel_mapping)) {
-                    if (type === 'ignore') continue
-                    dbMapping[type] = col
-                }
-
-                // Only return if at least required fields are present
-                if (dbMapping.urunGrupId && dbMapping.isim && dbMapping.stok) {
-                    return dbMapping
-                }
-                return null
-            })()
-
             const response = await fetch('/api/user-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...settings,
-                    ikas_excel_mapping: mappingToSend
-                }),
+                body: JSON.stringify(settings),
             })
 
             const data = await response.json()
@@ -275,26 +206,33 @@ export default function SettingsPage() {
         }
     }
 
+    const tabs = [
+        { id: 'telegram' as TabType, name: 'Telegram', icon: Send },
+        { id: 'instagram' as TabType, name: 'Instagram', icon: Instagram },
+        { id: 'ikas' as TabType, name: 'IKAS', icon: Package },
+        { id: 'trendyol' as TabType, name: 'Trendyol', icon: TrendingUp },
+    ]
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
             </div>
         )
     }
 
     return (
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-6xl mx-auto">
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
-                        <SettingsIcon className="w-5 h-5 text-violet-600" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <SettingsIcon className="w-6 h-6 text-white" />
                     </div>
                     Ayarlar
                 </h1>
                 <p className="text-slate-600">
-                    Telegram bot bilgilerinizi ve site ayarlarınızı buradan yönetin
+                    Uygulama ayarlarınızı yönetin
                 </p>
             </div>
 
@@ -318,490 +256,482 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            {/* Settings Form */}
-            <form onSubmit={handleSave}>
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    {/* Telegram Bot Token */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Telegram Bot Token
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.telegram_bot_token}
-                            onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
-                            placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            @BotFather'dan aldığınız bot token'ınızı girin
-                        </p>
-                    </div>
-
-                    {/* Telegram Chat ID */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Telegram Chat ID
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.telegram_chat_id}
-                            onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
-                            placeholder="-1001234567890"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Kanal veya grubunuzun chat ID'sini girin (genellikle - ile başlar)
-                        </p>
-                    </div>
-
-                    {/* Site URL */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Site URL
-                        </label>
-                        <input
-                            type="url"
-                            value={settings.site_url}
-                            onChange={(e) => setSettings({ ...settings, site_url: e.target.value })}
-                            placeholder="https://markanız.com/"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Ürün linklerinde kullanılacak site URL'i
-                        </p>
-                    </div>
-
-                    {/* Site Products API URL */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Site Ürünleri API URL <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="url"
-                            value={settings.site_products_api_url}
-                            onChange={(e) => setSettings({ ...settings, site_products_api_url: e.target.value })}
-                            placeholder="https://siteniz.com/api/GetProducts"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Site ürünlerini çekmek için kullanılacak API adresi (Fiyat Karşılaştır sayfası için)
-                        </p>
-                    </div>
-
-                    {/* Site Update Price API URL */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Site Fiyat Güncelleme API URL <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="url"
-                            value={settings.site_update_price_api_url}
-                            onChange={(e) => setSettings({ ...settings, site_update_price_api_url: e.target.value })}
-                            placeholder="https://siteniz.com/api/UpdatePrice"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Site fiyatlarını güncellemek için kullanılacak API adresi
-                        </p>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Left: Tabs */}
+                <div className="lg:col-span-1">
+                    <div className="space-y-1">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === tab.id
+                                        ? 'bg-white text-emerald-700 shadow-sm'
+                                        : 'text-slate-600 hover:bg-white/50'
+                                        }`}
+                                >
+                                    <Icon className="w-5 h-5" />
+                                    {tab.name}
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
 
-                {/* Trendyol Settings */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">🛍️</span>
-                        Trendyol Ayarları
-                    </h2>
-
-                    {/* Trendyol Target URL */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Trendyol Ürünler Linki
-                        </label>
-                        <input
-                            type="url"
-                            value={settings.trendyol_target_url}
-                            onChange={(e) => setSettings({ ...settings, trendyol_target_url: e.target.value })}
-                            placeholder="https://www.trendyol.com/sr"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Ürünlerini çekmek istediğiniz Trendyol sayfasının URL'i
-                        </p>
-                    </div>
-
-                    {/* Trendyol Brand Slug */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            Trendyol Marka Slug
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.trendyol_brand_slug}
-                            onChange={(e) => setSettings({ ...settings, trendyol_brand_slug: e.target.value })}
-                            placeholder="markanız"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            Ürün linklerinde kullanılacak marka adı (örn: markanız)
-                        </p>
-                    </div>
-
-                    {/* Replace genel-markalar Checkbox */}
-                    <div className="flex items-start gap-3">
-                        <input
-                            type="checkbox"
-                            id="replace_genel_markalar"
-                            checked={settings.replace_genel_markalar}
-                            onChange={(e) => setSettings({ ...settings, replace_genel_markalar: e.target.checked })}
-                            className="mt-1 w-4 h-4 text-violet-600 border-slate-300 rounded focus:ring-2 focus:ring-violet-500"
-                        />
-                        <div>
-                            <label htmlFor="replace_genel_markalar" className="text-sm font-semibold text-slate-700 cursor-pointer">
-                                Linklerde "genel-markalar" var mı?
-                            </label>
-                            <p className="text-xs text-slate-500 mt-1">
-                                Aktif edilirse, ürün linklerindeki "genel-markalar" ifadesi yukarıdaki marka slug'ı ile değiştirilir
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* İKAS Settings */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">🏪</span>
-                        İKAS Ayarları
-                    </h2>
-
-                    {/* İKAS Store Name */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            İKAS Mağaza Adı
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.ikas_store_name}
-                            onChange={(e) => setSettings({ ...settings, ikas_store_name: e.target.value })}
-                            placeholder="markanız"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            İKAS mağaza adınız (https://magazaadi.myikas.com)
-                        </p>
-                    </div>
-
-                    {/* İKAS Client ID */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            İKAS Client ID
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.ikas_client_id}
-                            onChange={(e) => setSettings({ ...settings, ikas_client_id: e.target.value })}
-                            placeholder="0a34563-3456y5432wergh-32345"
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            İKAS API'den aldığınız Client ID
-                        </p>
-                    </div>
-
-                    {/* İKAS Client Secret */}
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            İKAS Client Secret
-                        </label>
-                        <input
-                            type="password"
-                            value={settings.ikas_client_secret}
-                            onChange={(e) => setSettings({ ...settings, ikas_client_secret: e.target.value })}
-                            placeholder="s_ZertdD..."
-                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono text-sm"
-                        />
-                        <p className="text-xs text-slate-500 mt-2">
-                            İKAS API'den aldığınız Client Secret (gizli tutulur)
-                        </p>
-                    </div>
-                </div>
-
-                {/* Contact Settings */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">📱</span>
-                        İletişim Bilgileri
-                    </h2>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Contact Phone */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                Telefon Numarası
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.contact_phone}
-                                onChange={(e) => setSettings({ ...settings, contact_phone: e.target.value })}
-                                placeholder="+90 5XX XXX XX XX"
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                            />
-                            <p className="text-xs text-slate-500 mt-2">
-                                Mesajın altına eklenecek telefon numarası
-                            </p>
-                        </div>
-
-                        {/* Contact Whatsapp */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                Whatsapp Linki
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.contact_whatsapp}
-                                onChange={(e) => setSettings({ ...settings, contact_whatsapp: e.target.value })}
-                                placeholder="https://wa.me/905XXXXXX"
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                            />
-                            <p className="text-xs text-slate-500 mt-2">
-                                Mesajın altına eklenecek Whatsapp linki
-                            </p>
-                        </div>
-
-                        {/* Label Whatsapp */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                "Whatsapp" Etiketi
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.label_whatsapp}
-                                onChange={(e) => setSettings({ ...settings, label_whatsapp: e.target.value })}
-                                placeholder="Whatsapp"
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                            />
-                            <p className="text-xs text-slate-500 mt-2">
-                                Whatsapp linkinin başındaki etiket (Örn: Sipariş Hattı)
-                            </p>
-                        </div>
-
-                        {/* Label Stock Code */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                "Stok Kodu" Etiketi
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.label_stock_code}
-                                onChange={(e) => setSettings({ ...settings, label_stock_code: e.target.value })}
-                                placeholder="Stok Kodu"
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                            />
-                            <p className="text-xs text-slate-500 mt-2">
-                                Mesajdaki başlık (Örn: Model Kodu)
-                            </p>
-                        </div>
-
-                        {/* Label Size Range */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                "Beden Aralığı" Etiketi
-                            </label>
-                            <input
-                                type="text"
-                                value={settings.label_size_range}
-                                onChange={(e) => setSettings({ ...settings, label_size_range: e.target.value })}
-                                placeholder="Beden Aralığı"
-                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
-                            />
-                            <p className="text-xs text-slate-500 mt-2">
-                                Mesajdaki başlık (Örn: Numaralar)
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Message Preview */}
-                    <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                            TELEGRAM MESAJ ÖNİZLEME
-                        </h3>
-                        <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 font-mono text-sm text-slate-700 whitespace-pre-wrap">
-                            <div className="text-slate-900 font-bold mb-1">Örnek Ürün İsmi</div>
-                            <div className="mb-1">{settings.label_stock_code || 'Stok Kodu'}: 12345</div>
-                            <div className="mb-2">{settings.label_size_range || 'Beden Aralığı'}: S, M, L</div>
-                            {(settings.contact_phone || settings.contact_whatsapp) ? (
-                                <>
-                                    {settings.contact_phone && <div>📞 {settings.contact_phone}</div>}
-                                    {settings.contact_whatsapp && <div>{settings.label_whatsapp || 'Whatsapp'}: {settings.contact_whatsapp}</div>}
-                                </>
-                            ) : (
-                                <div className="text-slate-400 italic text-xs mt-2">
-                                    (İletişim bilgileri girildiğinde burada görünecek)
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Excel Şablon Ayarı */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">📊</span>
-                        Excel Şablon Ayarı
-                    </h2>
-
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <FileSpreadsheet className={`w-8 h-8 ${settings.ikas_excel_mapping ? 'text-green-600' : 'text-slate-300'}`} />
+                {/* Right: Settings Form */}
+                <div className="lg:col-span-3">
+                    <div className="bg-white rounded-xl p-6 shadow-sm">
+                        {/* Telegram Settings */}
+                        {activeTab === 'telegram' && (
+                            <div className="space-y-6">
                                 <div>
-                                    <p className="font-semibold text-slate-900">
-                                        {settings.ikas_excel_mapping ? 'Şablon Kayıtlı' : 'Şablon Tanımlanmamış'}
+                                    <h2 className="text-xl font-semibold text-slate-900 mb-4">Telegram Bot Ayarları</h2>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        Telegram bot'unuzu yapılandırın
                                     </p>
-                                    <p className="text-xs text-slate-500">
-                                        {settings.ikas_excel_mapping
-                                            ? 'Telegram Bot sayfasına yüklenen Excel\'ler bu şablonla otomatik işlenecektir.'
-                                            : 'Excel yüklerken otomatik kolon eşleştirmesi için bir örnek dosya yükleyin.'}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Bot Token
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.telegram_bot_token}
+                                        onChange={(e) => setSettings({ ...settings, telegram_bot_token: e.target.value })}
+                                        placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Chat ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.telegram_chat_id}
+                                        onChange={(e) => setSettings({ ...settings, telegram_chat_id: e.target.value })}
+                                        placeholder="-1001234567890"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <hr className="border-slate-200" />
+
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-4">İçerik Ayarları</h3>
+                                    <p className="text-xs text-slate-500 mb-4">Telegram mesajlarında görünecek etiket ve iletişim bilgilerini özelleştirin</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Stok Kodu Etiketi
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.label_stock_code}
+                                            onChange={(e) => setSettings({ ...settings, label_stock_code: e.target.value })}
+                                            placeholder="Stok Kodu"
+                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            Beden Aralığı Etiketi
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.label_size_range}
+                                            onChange={(e) => setSettings({ ...settings, label_size_range: e.target.value })}
+                                            placeholder="Beden Aralığı"
+                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            WhatsApp Etiketi
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.label_whatsapp}
+                                            onChange={(e) => setSettings({ ...settings, label_whatsapp: e.target.value })}
+                                            placeholder="Whatsapp"
+                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                                            WhatsApp Numarası
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={settings.contact_whatsapp}
+                                            onChange={(e) => setSettings({ ...settings, contact_whatsapp: e.target.value })}
+                                            placeholder="https://wa.me/905XXXXXXXXX"
+                                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Telefon Numarası
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.contact_phone}
+                                        onChange={(e) => setSettings({ ...settings, contact_phone: e.target.value })}
+                                        placeholder="+90 553 XXX XX XX"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                    <p className="text-sm text-blue-900 font-medium mb-2">📝 Mesaj Önizleme</p>
+                                    <pre className="text-xs text-blue-800 whitespace-pre-wrap font-mono">{`Ürün İsmi
+${settings.label_stock_code}: ABC123
+${settings.label_size_range}: S-M-L-XL${settings.contact_phone ? `\n📞 ${settings.contact_phone}` : ''}${settings.contact_whatsapp ? `\n${settings.label_whatsapp}: ${settings.contact_whatsapp}` : ''}`}</pre>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Instagram Settings */}
+                        {activeTab === 'instagram' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-slate-900 mb-4">Instagram API Ayarları</h2>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        Instagram hesabınızı bağlayın
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Access Token
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.instagram_access_token}
+                                        onChange={(e) => setSettings({ ...settings, instagram_access_token: e.target.value })}
+                                        placeholder="Instagram Graph API Access Token"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Account ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.instagram_account_id}
+                                        onChange={(e) => setSettings({ ...settings, instagram_account_id: e.target.value })}
+                                        placeholder="Instagram Business Account ID"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Varsayılan Konum ID (Opsiyonel)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.instagram_location_id}
+                                        onChange={(e) => setSettings({ ...settings, instagram_location_id: e.target.value })}
+                                        placeholder="Facebook Location ID"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Tüm postlarda varsayılan olarak kullanılacak konum ID'si
+                                    </p>
+                                </div>
+
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                    <p className="text-sm text-blue-900 font-medium mb-2">💡 Nasıl Bulunur?</p>
+                                    <p className="text-xs text-blue-800">
+                                        Facebook Graph API Explorer'da location arayarak veya mevcut bir Facebook Page Location ID'sini kullanabilirsiniz. Bu alan opsiyoneldir.
                                     </p>
                                 </div>
                             </div>
-                            {settings.ikas_excel_mapping && (
-                                <button
-                                    type="button"
-                                    onClick={deleteTemplate}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Şablonu Sil"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            )}
-                        </div>
+                        )}
 
-                        <input
-                            type="file"
-                            ref={excelTemplateInputRef}
-                            onChange={handleTemplateUpload}
-                            accept=".xlsx,.xls,.csv"
-                            className="hidden"
-                            id="excel-template-input"
-                        />
-                        <label
-                            htmlFor="excel-template-input"
-                            className={`flex items-center justify-center gap-2 w-full py-3 px-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer transition-colors ${uploadingTemplate ? 'bg-slate-100 cursor-not-allowed' : 'hover:border-violet-400 hover:bg-violet-50'}`}
-                        >
-                            {uploadingTemplate ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
-                                    <span className="text-slate-600">Analiz ediliyor...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Upload className="w-5 h-5 text-violet-600" />
-                                    <span className="text-slate-600">Örnek Excel Yükle ve Eşleştir</span>
-                                </>
-                            )}
-                        </label>
-                    </div>
-                </div>
-
-                {/* Eşleştirme Dosyası */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 space-y-6">
-                    <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                        <span className="text-2xl">📎</span>
-                        Barkod Eşleştirme Dosyası
-                    </h2>
-
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <FileSpreadsheet className="w-8 h-8 text-green-600" />
+                        {/* IKAS Settings */}
+                        {activeTab === 'ikas' && (
+                            <div className="space-y-6">
                                 <div>
-                                    <p className="font-semibold text-slate-900">
-                                        {matchingCount > 0 ? `${matchingCount} satır yüklü` : 'Dosya yüklenmedi'}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                        Excel formatı: Trendyol Link | Barkod
+                                    <h2 className="text-xl font-semibold text-slate-900 mb-4">IKAS Entegrasyonu</h2>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        IKAS mağazanızı bağlayın
                                     </p>
                                 </div>
-                            </div>
-                            {matchingCount > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={deleteMatchingData}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Verileri Sil"
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
-                            )}
-                        </div>
 
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileUpload}
-                            accept=".xlsx,.xls"
-                            className="hidden"
-                            id="matching-file-input"
-                        />
-                        <label
-                            htmlFor="matching-file-input"
-                            className={`flex items-center justify-center gap-2 w-full py-3 px-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer transition-colors ${uploadingFile ? 'bg-slate-100 cursor-not-allowed' : 'hover:border-violet-400 hover:bg-violet-50'}`}
-                        >
-                            {uploadingFile ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
-                                    <span className="text-slate-600">Yükleniyor...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Upload className="w-5 h-5 text-violet-600" />
-                                    <span className="text-slate-600">Excel Dosyası Yükle (.xlsx)</span>
-                                </>
-                            )}
-                        </label>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Client ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.ikas_client_id}
+                                        onChange={(e) => setSettings({ ...settings, ikas_client_id: e.target.value })}
+                                        placeholder="IKAS Client ID"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Client Secret
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={settings.ikas_client_secret}
+                                        onChange={(e) => setSettings({ ...settings, ikas_client_secret: e.target.value })}
+                                        placeholder="IKAS Client Secret"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Store Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.ikas_store_name}
+                                        onChange={(e) => setSettings({ ...settings, ikas_store_name: e.target.value })}
+                                        placeholder="mystore"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Mağaza URL'inizdeki isim (örn: mystore.myikas.com)
+                                    </p>
+                                </div>
+
+                                <hr className="border-slate-200" />
+
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-4">Site API Ayarları</h3>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Site URL
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={settings.site_url}
+                                        onChange={(e) => setSettings({ ...settings, site_url: e.target.value })}
+                                        placeholder="https://swassonline.com/"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Site Ürünleri API URL <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={settings.site_products_api_url}
+                                        onChange={(e) => setSettings({ ...settings, site_products_api_url: e.target.value })}
+                                        placeholder="https://example.com/api/products"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Site ürünlerini çekmek için kullanılan API endpoint
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Site Fiyat Güncelleme API URL <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={settings.site_update_price_api_url}
+                                        onChange={(e) => setSettings({ ...settings, site_update_price_api_url: e.target.value })}
+                                        placeholder="https://example.com/api/update-price"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Fiyat karşılaştırma sonrası fiyat güncellemesi için kullanılan API endpoint
+                                    </p>
+                                </div>
+
+                                <hr className="border-slate-200" />
+
+                                {/* Excel Şablon Ayarı */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-4">Excel Şablon Ayarı</h3>
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-700">
+                                                        {settings.ikas_excel_mapping ? 'Şablon eşleştirmesi mevcut' : 'Şablon eşleştirmesi yok'}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {settings.ikas_excel_mapping
+                                                            ? 'Excel yükleme sırasında otomatik kolon eşleştirmesi kullanılacak'
+                                                            : 'İlk Excel yüklemede otomatik eşleştirme oluşturulacak'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {settings.ikas_excel_mapping && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleResetExcelMapping}
+                                                    className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                >
+                                                    Sıfırla
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Barkod Eşleştirme Dosyası */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-slate-900 mb-4">Barkod Eşleştirme Dosyası</h3>
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-700">
+                                                        {matchingCount > 0
+                                                            ? `${matchingCount} eşleştirme kayıtlı`
+                                                            : 'Eşleştirme verisi yok'}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        Trendyol link → İkas barkod eşleştirmesi
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {matchingCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleMatchingDelete}
+                                                    disabled={deletingMatching}
+                                                    className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                                                >
+                                                    {deletingMatching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                    Sil
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <input
+                                                ref={matchingFileRef}
+                                                type="file"
+                                                accept=".xlsx,.xls"
+                                                onChange={handleMatchingUpload}
+                                                className="hidden"
+                                                id="matching-file-upload"
+                                            />
+                                            <label
+                                                htmlFor="matching-file-upload"
+                                                className={`flex items-center justify-center gap-2 w-full px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-sm font-medium transition-colors cursor-pointer ${uploadingMatching
+                                                    ? 'opacity-50 cursor-not-allowed bg-slate-100'
+                                                    : 'hover:border-emerald-400 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700'
+                                                    }`}
+                                            >
+                                                {uploadingMatching ? (
+                                                    <><Loader2 className="w-4 h-4 animate-spin" /> Yükleniyor...</>
+                                                ) : (
+                                                    <><Upload className="w-4 h-4" /> Excel Dosyası Yükle (.xlsx)</>
+                                                )}
+                                            </label>
+                                            <p className="text-xs text-slate-500 mt-2">
+                                                Excel dosyasında &quot;Barkod&quot; ve &quot;Trendyol.com Linki&quot; kolonları bulunmalıdır
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Trendyol Settings */}
+                        {activeTab === 'trendyol' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-slate-900 mb-4">Trendyol Ayarları</h2>
+                                    <p className="text-sm text-slate-600 mb-6">
+                                        Trendyol fiyat karşılaştırma ayarları
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Hedef URL
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={settings.trendyol_target_url}
+                                        onChange={(e) => setSettings({ ...settings, trendyol_target_url: e.target.value })}
+                                        placeholder="https://www.trendyol.com/..."
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                                        Marka Slug
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={settings.trendyol_brand_slug}
+                                        onChange={(e) => setSettings({ ...settings, trendyol_brand_slug: e.target.value })}
+                                        placeholder="marka-adi"
+                                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="replace_genel_markalar"
+                                        checked={settings.replace_genel_markalar}
+                                        onChange={(e) => setSettings({ ...settings, replace_genel_markalar: e.target.checked })}
+                                        className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                                    />
+                                    <label htmlFor="replace_genel_markalar" className="text-sm font-medium text-slate-700">
+                                        Genel markaları değiştir
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Save Button */}
+                        <div className="mt-8 pt-6 border-t border-slate-200">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg shadow-emerald-500/30"
+                            >
+                                {saving ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>Kaydediliyor...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-5 h-5" />
+                                        <span>Ayarları Kaydet</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                {/* Save Button */}
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg shadow-violet-500/30"
-                >
-                    {saving ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>Kaydediliyor...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Save className="w-5 h-5" />
-                            <span>Kaydet</span>
-                        </>
-                    )}
-                </button>
-            </form>
-
-            <ExcelColumnMapper
-                isOpen={showColumnModal}
-                onClose={() => setShowColumnModal(false)}
-                onSave={handleTemplateSave}
-                previewColumns={previewColumns}
-                totalRows={totalPreviewRows}
-                initialMapping={settings.ikas_excel_mapping || {}}
-            />
-
-            {/* Info Card */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mt-6">
-                <h3 className="text-sm font-semibold text-blue-900 mb-2">
-                    💡 Bilgi
-                </h3>
-                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                    <li>Bu ayarlar sadece sizin için geçerlidir</li>
-                    <li>Ayarlarınız güvenli bir şekilde veritabanında saklanır</li>
-                </ul>
             </div>
         </div>
     )

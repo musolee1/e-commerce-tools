@@ -3,7 +3,7 @@
 import { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
-import { LogOut, Send, Settings, Package, HelpCircle, ShoppingBag, Menu, X } from 'lucide-react'
+import { LogOut, Send, Settings, Package, HelpCircle, ShoppingBag, Menu, X, Instagram } from 'lucide-react'
 import Link from 'next/link'
 import TourGuide from './TourGuide'
 import { useTour, dashboardTourSteps } from '@/hooks/useTour'
@@ -28,6 +28,7 @@ export default function DashboardNav({ user }: DashboardNavProps) {
 
     const navItems = [
         { name: 'Telegram Bot', path: '/dashboard/telegram-bot', icon: Send, tourId: 'nav-telegram' },
+        { name: 'Instagram', path: '/dashboard/instagram', icon: Instagram, tourId: 'nav-instagram' },
         { name: 'Fiyat Karşılaştır', path: '/dashboard/price-compare', icon: Package, tourId: 'nav-price-compare' },
         { name: 'Ayarlar', path: '/dashboard/settings', icon: Settings, tourId: 'nav-settings' },
     ]

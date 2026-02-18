@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (userError || !user) {
             return NextResponse.json({ error: 'Oturum açmanız gerekiyor' }, { status: 401 })
         }
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         const { data: products, error } = await supabase
             .from('ikas_grouped_products')
             .select('*')
-            .eq('user_id', session.user.id)
+            .eq('user_id', user.id)
             .order('uploaded_at', { ascending: false })
 
         if (error) {
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const { data: sentLogs } = await supabase
             .from('telegram_logs')
             .select('product_slug')
-            .eq('user_id', session.user.id)
+            .eq('user_id', user.id)
             .eq('status', 'success')
 
         // Create a set of sent product slugs (stok_kodu or urun_grup_id)
@@ -56,16 +56,16 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const supabase = await createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (userError || !user) {
             return NextResponse.json({ error: 'Oturum açmanız gerekiyor' }, { status: 401 })
         }
 
         const { error } = await supabase
             .from('ikas_grouped_products')
             .delete()
-            .eq('user_id', session.user.id)
+            .eq('user_id', user.id)
 
         if (error) {
             console.error('Delete error:', error)

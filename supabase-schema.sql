@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
   ikas_client_secret TEXT,
   ikas_store_name TEXT DEFAULT 'swassonline',
   ikas_excel_mapping JSONB,
+  instagram_access_token TEXT,
+  instagram_account_id TEXT,
+  instagram_location_id TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

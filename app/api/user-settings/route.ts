@@ -36,10 +36,30 @@ export async function GET() {
                 ikas_client_secret: null,
                 ikas_store_name: null,
                 ikas_excel_mapping: null,
+                instagram_access_token: null,
+                instagram_account_id: null,
+                instagram_location_id: null,
             })
         }
 
-        return NextResponse.json(data)
+        // Mask sensitive tokens before sending to client
+        const sensitiveFields = [
+            'telegram_bot_token',
+            'instagram_access_token',
+            'ikas_client_secret',
+        ]
+
+        const maskedData = { ...data }
+        for (const field of sensitiveFields) {
+            if (maskedData[field]) {
+                const val = maskedData[field] as string
+                if (val.length > 8) {
+                    maskedData[field] = val.substring(0, 4) + '•'.repeat(Math.min(val.length - 8, 20)) + val.substring(val.length - 4)
+                }
+            }
+        }
+
+        return NextResponse.json(maskedData)
     } catch (error: any) {
         console.error('Get settings error:', error)
         return NextResponse.json(
@@ -73,6 +93,9 @@ export async function POST(request: NextRequest) {
             ikas_client_secret,
             ikas_store_name,
             ikas_excel_mapping,
+            instagram_access_token,
+            instagram_account_id,
+            instagram_location_id,
             contact_phone,
             contact_whatsapp,
             label_stock_code,
@@ -104,6 +127,9 @@ export async function POST(request: NextRequest) {
                     ikas_client_secret,
                     ikas_store_name,
                     ikas_excel_mapping,
+                    instagram_access_token,
+                    instagram_account_id,
+                    instagram_location_id,
                     contact_phone,
                     contact_whatsapp,
                     label_stock_code,
@@ -135,6 +161,9 @@ export async function POST(request: NextRequest) {
                     ikas_client_secret,
                     ikas_store_name,
                     ikas_excel_mapping,
+                    instagram_access_token,
+                    instagram_account_id,
+                    instagram_location_id,
                     contact_phone,
                     contact_whatsapp,
                     label_stock_code,
@@ -176,12 +205,23 @@ export async function PATCH(request: NextRequest) {
             'site_products_api_url', 'site_update_price_api_url',
             'trendyol_target_url', 'trendyol_brand_slug', 'replace_genel_markalar',
             'ikas_client_id', 'ikas_client_secret', 'ikas_store_name',
-            'ikas_excel_mapping', 'contact_phone', 'contact_whatsapp',
+            'ikas_excel_mapping', 'instagram_access_token', 'instagram_account_id', 'instagram_location_id',
+            'contact_phone', 'contact_whatsapp',
             'label_stock_code', 'label_size_range', 'label_whatsapp'
+        ]
+
+        const sensitiveFields = [
+            'telegram_bot_token',
+            'instagram_access_token',
+            'ikas_client_secret',
         ]
 
         for (const field of allowedFields) {
             if (body[field] !== undefined) {
+                // Skip masked values — don't overwrite real tokens with masked strings
+                if (sensitiveFields.includes(field) && typeof body[field] === 'string' && body[field].includes('•')) {
+                    continue
+                }
                 updates[field] = body[field]
             }
         }

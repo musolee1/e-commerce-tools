@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
     try {
         // Get user session
         const supabase = await createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (userError || !user) {
             return NextResponse.json({ error: 'Oturum açmanız gerekiyor' }, { status: 401 })
         }
 
