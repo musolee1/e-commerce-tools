@@ -170,6 +170,42 @@ async function createSinglePost(
     );
 
     if (containerData.error) {
+        // If location_id is invalid, retry without it
+        if (locationId && containerData.error.message?.includes('location')) {
+            console.log('[Single:Container] Invalid location_id, retrying without location...');
+            delete containerParams.location_id;
+            const retryData = await fetchWithRetry(
+                `https://graph.facebook.com/${GRAPH_API_VERSION}/${igAccountId}/media`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(containerParams),
+                },
+                'Single:Container:NoLocation'
+            );
+            if (retryData.error) {
+                throw new Error(`Instagram hatası: ${retryData.error.message}`);
+            }
+            const retryCreationId = retryData.id;
+            await waitForMediaReady(retryCreationId, accessToken, 'Single:Status');
+            const retryPublish = await fetchWithRetry(
+                `https://graph.facebook.com/${GRAPH_API_VERSION}/${igAccountId}/media_publish`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ creation_id: retryCreationId, access_token: accessToken }),
+                },
+                'Single:Publish:NoLocation'
+            );
+            if (retryPublish.error) {
+                throw new Error(`Yayınlama hatası: ${retryPublish.error.message}`);
+            }
+            return NextResponse.json({
+                success: true,
+                postId: retryPublish.id,
+                message: 'Instagram\'a başarıyla post atıldı! (lokasyon geçersiz, lokasyonsuz gönderildi)'
+            });
+        }
         throw new Error(`Instagram hatası: ${containerData.error.message}`);
     }
 
