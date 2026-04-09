@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Instagram, Send, Loader2, CheckCircle2, AlertCircle, Image as ImageIcon, Plus, X, Package, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Hash, LayoutGrid, Eye, EyeOff, ExternalLink, Paintbrush } from 'lucide-react'
+import { Instagram, Send, Loader2, CheckCircle2, AlertCircle, Image as ImageIcon, Plus, X, Package, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Hash, LayoutGrid, Eye, EyeOff, ExternalLink, Paintbrush, Clock, Calendar, Trash2 } from 'lucide-react'
 import GridEditorModal from '@/components/GridEditorModal'
 import { useSending } from '@/components/SendingContext'
 import { useDataCache } from '@/components/DataCacheContext'
@@ -71,16 +71,67 @@ export default function InstagramPage() {
     const [gridEditorOpen, setGridEditorOpen] = useState(false)
     const [gridEditorImages, setGridEditorImages] = useState<string[]>([])
 
+    // Scheduling
+    const [showScheduler, setShowScheduler] = useState(false)
+    const [scheduleDate, setScheduleDate] = useState('')
+    const [scheduleTime, setScheduleTime] = useState('')
+    const [scheduledPosts, setScheduledPosts] = useState<any[]>([])
+    const [loadingScheduledPosts, setLoadingScheduledPosts] = useState(false)
+    const [schedulingPost, setSchedulingPost] = useState(false)
+
     // Carousel scroll ref
     const carouselRef = useRef<HTMLDivElement>(null)
+    const schedulerRef = useRef<HTMLDivElement>(null)
 
     // Watermark canvas ref
     const watermarkCanvasRef = useRef<HTMLCanvasElement>(null)
+
+    // Load scheduled posts
+    const loadScheduledPosts = useCallback(async () => {
+        setLoadingScheduledPosts(true)
+        try {
+            const res = await fetch('/api/instagram/schedule')
+            if (res.ok) {
+                const data = await res.json()
+                setScheduledPosts(data.scheduledPosts || [])
+            }
+        } catch (err) {
+            console.error('Error loading scheduled posts:', err)
+        } finally {
+            setLoadingScheduledPosts(false)
+        }
+    }, [])
+
+    // Cancel scheduled post
+    const cancelScheduledPost = useCallback(async (id: string) => {
+        try {
+            const res = await fetch(`/api/instagram/schedule?id=${id}`, { method: 'DELETE' })
+            if (res.ok) {
+                setScheduledPosts(prev => prev.filter(p => p.id !== id))
+            }
+        } catch (err) {
+            console.error('Error cancelling scheduled post:', err)
+        }
+    }, [])
+
+    // Close scheduler popover on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (schedulerRef.current && !schedulerRef.current.contains(e.target as Node)) {
+                setShowScheduler(false)
+            }
+        }
+        if (showScheduler) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [showScheduler])
 
     // Load on mount (from cache — instant if already loaded)
     useEffect(() => {
         loadGroupedProductsCache()
         loadSentItemsCache()
+        loadScheduledPosts()
         loadUserSettings().then(settings => {
             if (settings?.instagram_location_id) {
                 setLocationId(settings.instagram_location_id)
@@ -277,6 +328,91 @@ export default function InstagramPage() {
         setCaption('')
         setPreviewIndex(0)
 
+        setTimeout(() => setSuccess(null), 4000)
+    }
+
+    const handleSchedulePost = async () => {
+        const validUrls = imageUrls.filter(url => url.trim() !== '')
+
+        if (validUrls.length === 0) {
+            setError('En az bir görsel URL gereklidir')
+            return
+        }
+
+        if (!scheduleDate || !scheduleTime) {
+            setError('Lütfen tarih ve saat seçin')
+            return
+        }
+
+        const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`)
+        if (scheduledAt <= new Date()) {
+            setError('Planlama zamanı gelecekte olmalıdır')
+            return
+        }
+
+        setError(null)
+        setSchedulingPost(true)
+
+        // If watermark is enabled, apply it and upload watermarked images
+        let finalUrls = validUrls
+        if (watermarkEnabled && watermarkText) {
+            try {
+                finalUrls = await Promise.all(validUrls.map(async (url) => {
+                    const watermarkedDataUrl = await applyWatermarkToImage(url)
+                    if (watermarkedDataUrl === url) return url
+                    const res = await fetch(watermarkedDataUrl)
+                    const blob = await res.blob()
+                    const formData = new FormData()
+                    formData.append('file', blob, `watermarked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`)
+                    const uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData })
+                    const uploadData = await uploadRes.json()
+                    if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermark görsel yüklenemedi')
+                    return uploadData.publicUrl
+                }))
+            } catch (err: any) {
+                setError('Watermark uygulanırken hata: ' + (err.message || 'Bilinmeyen hata'))
+                setSchedulingPost(false)
+                return
+            }
+        }
+
+        const fullCaption = `${caption.trim()}\n\n${hashtags.trim()}`.trim()
+
+        try {
+            const res = await fetch('/api/instagram/schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    imageUrls: finalUrls,
+                    caption: fullCaption || '',
+                    locationId: locationId || undefined,
+                    productId: selectedProduct?.id,
+                    urunGrupId: selectedProduct?.urun_grup_id,
+                    urunIsmi: selectedProduct?.urun_ismi,
+                    productName: selectedProduct?.urun_ismi || 'Manuel Post',
+                    scheduledAt: scheduledAt.toISOString(),
+                }),
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Planlama başarısız')
+
+            if (selectedProduct) addSentItem(selectedProduct.id)
+
+            setSuccess(data.message || 'Post planlandı!')
+            setShowScheduler(false)
+            setScheduleDate('')
+            setScheduleTime('')
+            setSelectedProduct(null)
+            setImageUrls([''])
+            setCaption('')
+            setPreviewIndex(0)
+            loadScheduledPosts()
+        } catch (err: any) {
+            setError(err.message || 'Planlama sırasında hata oluştu')
+        } finally {
+            setSchedulingPost(false)
+        }
         setTimeout(() => setSuccess(null), 4000)
     }
 
@@ -780,25 +916,162 @@ export default function InstagramPage() {
                         )}
                     </div>
 
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={loading || validImageCount === 0 || (isProcessing && queue.length > 3)}
-                        className="w-full flex items-center justify-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3.5 px-6 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Gönderiliyor...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Send className="w-4 h-4" />
-                                <span>Kuyruğa Ekle{isProcessing ? ` (${queue.length + 1} kuyrukta)` : ''}</span>
-                            </>
-                        )}
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                        {/* Instant Send */}
+                        <button
+                            type="submit"
+                            disabled={loading || validImageCount === 0 || (isProcessing && queue.length > 3)}
+                            className="flex-1 flex items-center justify-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3.5 px-6 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Gönderiliyor...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Send className="w-4 h-4" />
+                                    <span>Kuyruğa Ekle{isProcessing ? ` (${queue.length + 1} kuyrukta)` : ''}</span>
+                                </>
+                            )}
+                        </button>
+
+                        {/* Schedule Button */}
+                        <div className="relative" ref={schedulerRef}>
+                            <button
+                                type="button"
+                                disabled={loading || validImageCount === 0}
+                                onClick={() => setShowScheduler(!showScheduler)}
+                                className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3.5 px-5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <Clock className="w-4 h-4" />
+                                <span>Planla</span>
+                            </button>
+
+                            {/* Scheduling Popover */}
+                            {showScheduler && (
+                                <div className="absolute bottom-full right-0 mb-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-4 z-50">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Calendar className="w-4 h-4 text-violet-600" />
+                                        <span className="text-sm font-semibold text-slate-800">Gönderim Planla</span>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Tarih</label>
+                                            <input
+                                                type="date"
+                                                value={scheduleDate}
+                                                onChange={(e) => setScheduleDate(e.target.value)}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-500 mb-1">Saat</label>
+                                            <input
+                                                type="time"
+                                                value={scheduleTime}
+                                                onChange={(e) => setScheduleTime(e.target.value)}
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 text-sm"
+                                            />
+                                        </div>
+
+                                        {scheduleDate && scheduleTime && (
+                                            <p className="text-xs text-violet-600 font-medium">
+                                                📅 {new Date(`${scheduleDate}T${scheduleTime}`).toLocaleString('tr-TR', {
+                                                    day: 'numeric', month: 'long', year: 'numeric',
+                                                    hour: '2-digit', minute: '2-digit'
+                                                })}
+                                            </p>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            disabled={!scheduleDate || !scheduleTime || schedulingPost}
+                                            onClick={handleSchedulePost}
+                                            className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                                        >
+                                            {schedulingPost ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Planlanıyor...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    <span>Planla</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </form>
+
+                {/* ====== SCHEDULED POSTS LIST ====== */}
+                {(scheduledPosts.length > 0 || loadingScheduledPosts) && (
+                    <div className="mt-6 bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                                <Clock className="w-4 h-4 text-violet-600" />
+                                <span className="text-sm font-semibold text-slate-800">Planlanan Gönderiler</span>
+                                <span className="text-xs text-slate-400">({scheduledPosts.length})</span>
+                            </div>
+                            <button
+                                onClick={loadScheduledPosts}
+                                disabled={loadingScheduledPosts}
+                                className="p-1.5 text-slate-400 hover:text-violet-600 rounded-md hover:bg-violet-50 transition-colors"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loadingScheduledPosts ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+
+                        <div className="divide-y divide-slate-50">
+                            {scheduledPosts.map((post) => (
+                                <div key={post.id} className="px-5 py-3 flex items-center justify-between group hover:bg-stone-50 transition-colors">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        {/* Thumbnail */}
+                                        {post.image_urls && post.image_urls[0] && (
+                                            <img
+                                                src={post.image_urls[0]}
+                                                alt=""
+                                                className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-slate-100"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                                            />
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-slate-800 truncate">{post.product_name}</p>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <Calendar className="w-3 h-3 text-violet-500" />
+                                                <p className="text-xs text-violet-600 font-medium">
+                                                    {new Date(post.scheduled_at).toLocaleString('tr-TR', {
+                                                        day: 'numeric', month: 'short',
+                                                        hour: '2-digit', minute: '2-digit'
+                                                    })}
+                                                </p>
+                                                <span className="text-xs text-slate-300">•</span>
+                                                <span className="text-xs text-slate-400">
+                                                    {(post.image_urls as string[])?.length || 0} görsel
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => cancelScheduledPost(post.id)}
+                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                        title="İptal et"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Grid Editor Modal */}
                 <GridEditorModal
