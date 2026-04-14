@@ -43,6 +43,7 @@ export default function InstagramPage() {
     const [selectedProduct, setSelectedProduct] = useState<GroupedProduct | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [hideSent, setHideSent] = useState(false)
+    const [postType, setPostType] = useState<'post' | 'story'>('post')
 
     // Form fields
     const [imageUrls, setImageUrls] = useState<string[]>([''])
@@ -202,6 +203,42 @@ export default function InstagramPage() {
         }
     }
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setLoading(true)
+        setError(null)
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const uploadRes = await fetch('/api/upload-image', {
+                method: 'POST',
+                body: formData,
+            })
+            const uploadData = await uploadRes.json()
+
+            if (!uploadRes.ok) {
+                throw new Error(uploadData.error || 'Görsel yüklenemedi')
+            }
+
+            const newUrl = uploadData.publicUrl
+
+            // Prepend new image to the urls and select it
+            const newUrls = [newUrl, ...imageUrls.filter(u => u.trim() !== '')]
+            setImageUrls(newUrls.length > 0 ? newUrls : [''])
+            setPreviewIndex(0)
+
+        } catch (err: any) {
+            setError('Görsel yüklenirken hata oluştu: ' + (err.message || 'Bilinmeyen hata'))
+        } finally {
+            setLoading(false)
+            // Reset input
+            e.target.value = ''
+        }
+    }
+
     const removeImageUrl = (index: number) => {
         setImageUrls(imageUrls.filter((_, i) => i !== index))
     }
@@ -249,7 +286,9 @@ export default function InstagramPage() {
     const handlePost = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        const validUrls = imageUrls.filter(url => url.trim() !== '')
+        const validUrls = postType === 'story' 
+            ? [validImages[previewIndex]].filter(url => url && url.trim() !== '')
+            : imageUrls.filter(url => url.trim() !== '')
 
         if (validUrls.length === 0) {
             setError('En az bir görsel URL gereklidir')
@@ -308,8 +347,9 @@ export default function InstagramPage() {
             type: 'instagram',
             productName: selectedProduct?.urun_ismi || 'Manuel Post',
             imageUrls: finalUrls,
-            caption: fullCaption || '',
+            caption: postType === 'story' ? '' : (fullCaption || ''),
             locationId: locationId || undefined,
+            postType,
             productId: selectedProduct?.id,
             urunGrupId: selectedProduct?.urun_grup_id,
             urunIsmi: selectedProduct?.urun_ismi,
@@ -332,7 +372,9 @@ export default function InstagramPage() {
     }
 
     const handleSchedulePost = async () => {
-        const validUrls = imageUrls.filter(url => url.trim() !== '')
+        const validUrls = postType === 'story' 
+            ? [validImages[previewIndex]].filter(url => url && url.trim() !== '')
+            : imageUrls.filter(url => url.trim() !== '')
 
         if (validUrls.length === 0) {
             setError('En az bir görsel URL gereklidir')
@@ -384,8 +426,9 @@ export default function InstagramPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     imageUrls: finalUrls,
-                    caption: fullCaption || '',
+                    caption: postType === 'story' ? '' : (fullCaption || ''),
                     locationId: locationId || undefined,
+                    postType,
                     productId: selectedProduct?.id,
                     urunGrupId: selectedProduct?.urun_grup_id,
                     urunIsmi: selectedProduct?.urun_ismi,
@@ -647,6 +690,32 @@ export default function InstagramPage() {
                 {/* ====== POST FORM ====== */}
                 <form onSubmit={handlePost} className="space-y-6">
 
+                    {/* Mode Selection Tabs */}
+                    <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setPostType('post')}
+                            className={`flex-1 py-2.5 px-4 text-sm font-semibold rounded-lg transition-all ${
+                                postType === 'post' 
+                                    ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100' 
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-stone-50 border border-transparent'
+                            }`}
+                        >
+                            Gönderi (Post)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPostType('story')}
+                            className={`flex-1 py-2.5 px-4 text-sm font-semibold rounded-lg transition-all ${
+                                postType === 'story' 
+                                    ? 'bg-violet-50 text-violet-700 shadow-sm border border-violet-100' 
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-stone-50 border border-transparent'
+                            }`}
+                        >
+                            Hikaye (Story)
+                        </button>
+                    </div>
+
                     {/* ====== WATERMARK SETTINGS ====== */}
                     {validImageCount > 0 && (
                         <div className="bg-white border border-slate-200 rounded-xl px-5 py-4">
@@ -711,7 +780,7 @@ export default function InstagramPage() {
                                 </div>
 
                                 {/* Carousel Images */}
-                                <div className="relative aspect-square bg-stone-100">
+                                <div className={`relative bg-stone-100 ${postType === 'story' ? 'aspect-[9/16]' : 'aspect-square'}`}>
                                     <img
                                         src={validImages[previewIndex]}
                                         alt={`Preview ${previewIndex + 1}`}
@@ -766,13 +835,15 @@ export default function InstagramPage() {
                                 </div>
 
                                 {/* Post Footer */}
-                                <div className="px-3 py-2.5">
-                                    {(caption || hashtags) && (
-                                        <p className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-3">
-                                            <span className="font-semibold">Mağazanız</span> {caption.trim()}{hashtags ? `\n\n${hashtags}` : ''}
-                                        </p>
-                                    )}
-                                </div>
+                                {postType === 'post' && (
+                                    <div className="px-3 py-2.5">
+                                        {(caption || hashtags) && (
+                                            <p className="text-xs text-slate-700 whitespace-pre-wrap line-clamp-3">
+                                                <span className="font-semibold">Mağazanız</span> {caption.trim()}{hashtags ? `\n\n${hashtags}` : ''}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -794,6 +865,31 @@ export default function InstagramPage() {
 
                         {imageUrlsCardExpanded && (
                             <div className="px-5 py-4 space-y-3 border-t border-slate-100">
+                                {/* Upload manual image */}
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="flex-1 h-px bg-slate-100"></div>
+                                    <div className="relative">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={handleImageUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            title="Bilgisayardan görsel seç"
+                                        />
+                                        <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 hover:bg-violet-100 transition-colors">
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Cihazdan Yükle
+                                        </button>
+                                    </div>
+                                    <div className="flex-1 h-px bg-slate-100"></div>
+                                </div>
+
+                                {postType === 'story' && (
+                                    <div className="bg-blue-50 text-blue-700 p-2 text-xs rounded border border-blue-100 mb-2">
+                                        Story modunda sadece <b>Önizleme</b> ekranında gördüğünüz görsel (1 adet) gönderilecektir. Görseller arasında geçiş yaparak göndermek istediğiniz görseli seçebilirsiniz.
+                                    </div>
+                                )}
+
                                 {/* First URL always visible */}
                                 <div className="flex gap-2">
                                     <input
@@ -873,8 +969,9 @@ export default function InstagramPage() {
                     </div>
 
                     {/* ====== CAPTION & HASHTAGS (collapsible card) ====== */}
-                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                        <button
+                    {postType === 'post' && (
+                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                            <button
                             type="button"
                             onClick={() => setCaptionExpanded(!captionExpanded)}
                             className="w-full flex items-center justify-between px-5 py-3 hover:bg-stone-50 transition-colors"
@@ -915,6 +1012,7 @@ export default function InstagramPage() {
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* Action Buttons */}
                     <div className="flex gap-3">

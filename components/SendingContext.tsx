@@ -11,6 +11,7 @@ interface InstagramJob {
     imageUrls: string[]
     caption: string
     locationId?: string
+    postType?: 'post' | 'story'
     // Used to mark as sent after success
     productId?: string
     urunGrupId?: string
@@ -88,6 +89,7 @@ export function SendingProvider({ children }: { children: React.ReactNode }) {
                         imageUrls: nextJob.imageUrls,
                         caption: nextJob.caption,
                         locationId: nextJob.locationId || undefined,
+                        postType: nextJob.postType || 'post',
                     }),
                 })
 

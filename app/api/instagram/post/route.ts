@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { imageUrls, caption, locationId } = body;
+        const { imageUrls, caption, locationId, postType } = body;
 
         if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return NextResponse.json({ error: 'En az bir görsel URL gereklidir.' }, { status: 400 });
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
             settings.instagram_access_token,
             imageUrls,
             caption,
-            locationId
+            locationId,
+            postType
         );
 
         return NextResponse.json(result);

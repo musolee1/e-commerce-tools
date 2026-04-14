@@ -101,20 +101,26 @@ export async function createSinglePost(
     imageUrl: string,
     caption?: string,
     userTags?: Array<{ username: string, x: number, y: number }>,
-    locationId?: string
+    locationId?: string,
+    postType?: 'post' | 'story'
 ): Promise<PostResult> {
     const containerParams: any = {
         image_url: imageUrl,
         access_token: accessToken,
     };
 
-    if (caption) containerParams.caption = caption;
-    if (locationId) containerParams.location_id = locationId;
+    if (postType === 'story') {
+        containerParams.media_type = 'STORIES';
+        // Stories do not support caption, location, user tags via this API.
+    } else {
+        if (caption) containerParams.caption = caption;
+        if (locationId) containerParams.location_id = locationId;
 
-    if (userTags && userTags.length > 0) {
-        containerParams.user_tags = JSON.stringify(
-            userTags.map(tag => ({ username: tag.username, x: tag.x, y: tag.y }))
-        );
+        if (userTags && userTags.length > 0) {
+            containerParams.user_tags = JSON.stringify(
+                userTags.map(tag => ({ username: tag.username, x: tag.x, y: tag.y }))
+            );
+        }
     }
 
     // Step 1: Create media container
@@ -325,10 +331,12 @@ export async function postToInstagram(
     accessToken: string,
     imageUrls: string[],
     caption?: string,
-    locationId?: string
+    locationId?: string,
+    postType?: 'post' | 'story'
 ): Promise<PostResult> {
-    if (imageUrls.length === 1) {
-        return createSinglePost(igAccountId, accessToken, imageUrls[0], caption, undefined, locationId);
+    if (imageUrls.length === 1 || postType === 'story') {
+        // Stop users from sending multiple images as a story for now, just take the first one
+        return createSinglePost(igAccountId, accessToken, imageUrls[0], caption, undefined, locationId, postType);
     }
     return createCarouselPost(igAccountId, accessToken, imageUrls, caption);
 }

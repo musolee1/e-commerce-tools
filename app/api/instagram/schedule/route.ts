@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { imageUrls, caption, locationId, productId, urunGrupId, urunIsmi, productName, scheduledAt } = body;
+        const { imageUrls, caption, locationId, productId, urunGrupId, urunIsmi, productName, scheduledAt, postType } = body;
 
         if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
             return NextResponse.json({ error: 'En az bir görsel URL gereklidir.' }, { status: 400 });
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
                 product_name: productName || 'Manuel Post',
                 scheduled_at: scheduledDate.toISOString(),
                 status: 'pending',
+                post_type: postType || 'post'
             })
             .select()
             .single();

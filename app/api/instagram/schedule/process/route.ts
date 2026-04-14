@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { postToInstagram } from '@/lib/instagram-api';
 
+export const maxDuration = 60; // Varsayılan 10/15 saniyelik Vercel sınırını maksimum 60 saniyeye çıkardık.
+
 /**
  * Cron endpoint for processing scheduled Instagram posts.
  * Called by Vercel Cron every minute.
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
             .eq('status', 'pending')
             .lte('scheduled_at', now)
             .order('scheduled_at', { ascending: true })
-            .limit(10); // Process max 10 at a time to avoid timeout
+            .limit(2); // Vercel timeout olmaması için tek seferde (dakikada) en fazla 2 görev işleyelim
 
         if (fetchError) {
             console.error('[Cron] Error fetching due posts:', fetchError);
@@ -48,6 +50,16 @@ export async function GET(request: NextRequest) {
         }
 
         console.log(`[Cron] Found ${duePosts.length} due post(s)`);
+
+        // Çift paylaşımı önlemek için (Lock Mechanism): İşleme başlamadan önce bu postların 
+        // tarihini geçici olarak +5 dakika ileri atıyoruz. Böylece cron-job veya Vercel timeout 
+        // yiyip 30 saniye sonra tekrar tetiklenirse, aynı postu bir daha pending görmeyecek.
+        const postIds = duePosts.map(p => p.id);
+        const lockTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        await supabase
+            .from('instagram_scheduled_posts')
+            .update({ scheduled_at: lockTime })
+            .in('id', postIds);
 
         const results: Array<{ id: string; status: string; error?: string }> = [];
 
@@ -72,7 +84,8 @@ export async function GET(request: NextRequest) {
                     settings.instagram_access_token,
                     imageUrls,
                     post.caption || undefined,
-                    post.location_id || undefined
+                    post.location_id || undefined,
+                    post.post_type || 'post'
                 );
 
                 // Mark as sent
