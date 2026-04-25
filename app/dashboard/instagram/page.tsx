@@ -26,6 +26,42 @@ const WATERMARK_COLORS = [
     { label: 'Mor', value: 'rgba(59,7,100,0.75)' },
 ]
 
+const compressImageFile = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.readAsDataURL(file)
+        reader.onload = (event) => {
+            const img = new Image()
+            img.src = event.target?.result as string
+            img.onload = () => {
+                const canvas = document.createElement('canvas')
+                let width = img.width
+                let height = img.height
+
+                const maxDim = 1500
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width)
+                        width = maxDim
+                    } else {
+                        width = Math.round((width * maxDim) / height)
+                        height = maxDim
+                    }
+                }
+
+                canvas.width = width
+                canvas.height = height
+                const ctx = canvas.getContext('2d')
+                if (!ctx) { resolve(file); return }
+                ctx.drawImage(img, 0, 0, width, height)
+                canvas.toBlob((blob) => { blob ? resolve(blob) : resolve(file) }, 'image/jpeg', 0.8)
+            }
+            img.onerror = () => resolve(file)
+        }
+        reader.onerror = () => resolve(file)
+    })
+}
+
 export default function InstagramPage() {
     const { addToQueue, isProcessing, currentJob, queue } = useSending()
     const {
@@ -210,12 +246,15 @@ export default function InstagramPage() {
         setLoading(true)
         setError(null)
         try {
-            const uploadRes = await fetch(`/api/upload-image?filename=${encodeURIComponent(file.name)}`, {
+            // Compress image to avoid 5MB/bucket limits
+            const compressedBlob = await compressImageFile(file)
+
+            const uploadRes = await fetch(`/api/upload-image?filename=${encodeURIComponent(file.name.replace(/\.[^/.]+$/, "") + ".jpg")}`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': file.type || 'application/octet-stream',
+                    'Content-Type': 'image/jpeg',
                 },
-                body: file,
+                body: compressedBlob,
             })
             const uploadData = await uploadRes.json()
 
@@ -256,17 +295,31 @@ export default function InstagramPage() {
             img.crossOrigin = 'anonymous'
             img.onload = () => {
                 const canvas = document.createElement('canvas')
-                canvas.width = img.naturalWidth
-                canvas.height = img.naturalHeight
+                let width = img.naturalWidth
+                let height = img.naturalHeight
+
+                const maxDim = 1500
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width)
+                        width = maxDim
+                    } else {
+                        width = Math.round((width * maxDim) / height)
+                        height = maxDim
+                    }
+                }
+
+                canvas.width = width
+                canvas.height = height
                 const ctx = canvas.getContext('2d')
                 if (!ctx) { resolve(imageUrl); return }
 
-                ctx.drawImage(img, 0, 0)
+                ctx.drawImage(img, 0, 0, width, height)
 
                 // Draw strip at bottom
-                const stripHeight = Math.max(40, img.naturalHeight * 0.06)
+                const stripHeight = Math.max(40, height * 0.06)
                 ctx.fillStyle = watermarkColor
-                ctx.fillRect(0, img.naturalHeight - stripHeight, img.naturalWidth, stripHeight)
+                ctx.fillRect(0, height - stripHeight, width, stripHeight)
 
                 // Draw text
                 const fontSize = Math.max(16, stripHeight * 0.55)
@@ -274,9 +327,9 @@ export default function InstagramPage() {
                 ctx.fillStyle = '#FFFFFF'
                 ctx.textAlign = 'center'
                 ctx.textBaseline = 'middle'
-                ctx.fillText(watermarkText, img.naturalWidth / 2, img.naturalHeight - stripHeight / 2)
+                ctx.fillText(watermarkText, width / 2, height - stripHeight / 2)
 
-                resolve(canvas.toDataURL('image/jpeg', 0.95))
+                resolve(canvas.toDataURL('image/jpeg', 0.8))
             }
             img.onerror = () => resolve(imageUrl)
             img.src = imageUrl

@@ -485,12 +485,12 @@ const GridEditorModal = memo(function GridEditorModal({
         setUploadError(null)
         try {
             const blob = await new Promise<Blob>((resolve, reject) => {
-                canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas blob oluşturulamadı')), 'image/png')
+                canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas blob oluşturulamadı')), 'image/jpeg', 0.8)
             })
-            const filename = `grid-${Date.now()}.png`
+            const filename = `grid-${Date.now()}.jpg`
             const res = await fetch(`/api/upload-image?filename=${filename}`, { 
                 method: 'POST', 
-                headers: { 'Content-Type': 'image/png' },
+                headers: { 'Content-Type': 'image/jpeg' },
                 body: blob 
             })
             const data = await res.json()
