@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import TelegramBot from 'node-telegram-bot-api'
+
 import { createClient } from '@/lib/supabase/server'
 
 interface GroupedProduct {
@@ -42,17 +42,24 @@ export async function POST(request: NextRequest) {
             .eq('user_id', user.id)
             .single()
 
-        const BOT_TOKEN = settings?.telegram_bot_token || process.env.TELEGRAM_BOT_TOKEN
-        const CHAT_ID = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID
+        let BOT_TOKEN = (settings?.telegram_bot_token || '').replace(/\s+/g, '').replace('TELEGRAM_BOT_TOKEN=', '')
+        if (!BOT_TOKEN || BOT_TOKEN.length < 40) {
+            BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').replace(/\s+/g, '')
+        }
+
+        let CHAT_ID = (settings?.telegram_chat_id || '').replace(/\s+/g, '').replace('TELEGRAM_CHAT_ID=', '')
+        if (!CHAT_ID || CHAT_ID === 'undefined') {
+            CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').replace(/\s+/g, '')
+        }
 
         if (!BOT_TOKEN || !CHAT_ID) {
             return NextResponse.json(
-                { error: 'Telegram bot ayarları yapılmamış. Lütfen Ayarlar sayfasından bot token ve chat ID girin.' },
+                { error: 'Telegram bot ayarları yapılmamış. Lütfen .env.local dosyasını kontrol edin.' },
                 { status: 400 }
             )
         }
 
-        const bot = new TelegramBot(BOT_TOKEN)
+
         let lastError: any = null
 
         // Retry loop with exponential backoff
@@ -118,10 +125,51 @@ ${labelSizeRange}: ${product.varyant_degerler}${contactPhone}${contactWhatsapp}`
 
                 // Send to Telegram
                 if (mediaGroup.length > 0) {
-                    await bot.sendMediaGroup(CHAT_ID, mediaGroup)
+                    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`;
+                    const formData = new FormData();
+                    formData.append('chat_id', CHAT_ID);
+                    
+                    const media: any[] = [];
+                    for (let i = 0; i < mediaGroup.length; i++) {
+                        const filename = `image${i}.jpg`;
+                        const blob = new Blob([mediaGroup[i].media], { type: 'image/jpeg' });
+                        formData.append(filename, blob, filename);
+                        
+                        media.push({
+                            type: 'photo',
+                            media: `attach://${filename}`,
+                            ...(i === 0 ? { caption: mediaGroup[i].caption || message, parse_mode: 'Markdown' } : {})
+                        });
+                    }
+                    
+                    formData.append('media', JSON.stringify(media));
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.description || `HTTP Error ${response.status}`);
+                    }
                 } else {
                     // Send just the text message if no images
-                    await bot.sendMessage(CHAT_ID, message)
+                    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: CHAT_ID,
+                            text: message,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.description || `HTTP Error ${response.status}`);
+                    }
                 }
 
                 // Log to database
