@@ -10,22 +10,40 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const formData = await request.formData()
-        const file = formData.get('file') as File | null
+        const contentType = request.headers.get('content-type') || ''
+        let fileBuffer: Buffer
+        let fileExt = 'png'
+        let fileType = 'image/png'
 
-        if (!file) {
-            return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 })
+        if (contentType.includes('multipart/form-data')) {
+            const formData = await request.formData()
+            const file = formData.get('file') as File | null
+            if (!file) return NextResponse.json({ error: 'Dosya bulunamadı' }, { status: 400 })
+            const arrayBuffer = await file.arrayBuffer()
+            fileBuffer = Buffer.from(arrayBuffer)
+            fileExt = file.name.split('.').pop() || 'png'
+            fileType = file.type || 'image/png'
+        } else if (contentType.startsWith('image/') || contentType.startsWith('application/octet-stream')) {
+            const arrayBuffer = await request.arrayBuffer()
+            if (arrayBuffer.byteLength === 0) {
+                return NextResponse.json({ error: 'Boş dosya' }, { status: 400 })
+            }
+            fileBuffer = Buffer.from(arrayBuffer)
+            const paramFilename = request.nextUrl.searchParams.get('filename') || 'image.jpg'
+            fileExt = paramFilename.split('.').pop() || 'png'
+            fileType = contentType
+        } else {
+            return NextResponse.json({ error: 'Geçersiz dosya formatı' }, { status: 400 })
         }
 
         // Generate unique filename
-        const ext = file.name.split('.').pop() || 'png'
-        const filename = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        const filename = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`
 
         // Upload to Supabase Storage
         const { data, error: uploadError } = await supabase.storage
             .from('grid-images')
-            .upload(filename, file, {
-                contentType: file.type || 'image/png',
+            .upload(filename, fileBuffer, {
+                contentType: fileType,
                 upsert: false,
             })
 

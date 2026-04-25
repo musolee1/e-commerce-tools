@@ -210,12 +210,12 @@ export default function InstagramPage() {
         setLoading(true)
         setError(null)
         try {
-            const formData = new FormData()
-            formData.append('file', file)
-
-            const uploadRes = await fetch('/api/upload-image', {
+            const uploadRes = await fetch(`/api/upload-image?filename=${encodeURIComponent(file.name)}`, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': file.type || 'application/octet-stream',
+                },
+                body: file,
             })
             const uploadData = await uploadRes.json()
 
@@ -315,12 +315,13 @@ export default function InstagramPage() {
                     const blob = await res.blob()
 
                     // Upload to Supabase Storage via existing API
-                    const formData = new FormData()
-                    formData.append('file', blob, `watermarked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`)
-
-                    const uploadRes = await fetch('/api/upload-image', {
+                    const filename = `watermarked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`
+                    const uploadRes = await fetch(`/api/upload-image?filename=${filename}`, {
                         method: 'POST',
-                        body: formData,
+                        headers: {
+                            'Content-Type': 'image/jpeg',
+                        },
+                        body: blob,
                     })
                     const uploadData = await uploadRes.json()
 
@@ -404,9 +405,12 @@ export default function InstagramPage() {
                     if (watermarkedDataUrl === url) return url
                     const res = await fetch(watermarkedDataUrl)
                     const blob = await res.blob()
-                    const formData = new FormData()
-                    formData.append('file', blob, `watermarked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`)
-                    const uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData })
+                    const filename = `watermarked-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jpg`
+                    const uploadRes = await fetch(`/api/upload-image?filename=${filename}`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'image/jpeg' },
+                        body: blob 
+                    })
                     const uploadData = await uploadRes.json()
                     if (!uploadRes.ok) throw new Error(uploadData.error || 'Watermark görsel yüklenemedi')
                     return uploadData.publicUrl
