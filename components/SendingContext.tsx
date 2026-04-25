@@ -16,6 +16,12 @@ interface InstagramJob {
     productId?: string
     urunGrupId?: string
     urunIsmi?: string
+    music?: {
+        previewUrl: string
+        trackName: string
+        artistName: string
+        artworkUrl: string
+    }
 }
 
 type SendingJob = InstagramJob // Extensible for Telegram in the future
@@ -90,6 +96,7 @@ export function SendingProvider({ children }: { children: React.ReactNode }) {
                         caption: nextJob.caption,
                         locationId: nextJob.locationId || undefined,
                         postType: nextJob.postType || 'post',
+                        music: nextJob.music,
                     }),
                 })
 

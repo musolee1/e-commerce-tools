@@ -104,10 +104,16 @@ export async function createSinglePost(
     locationId?: string,
     postType?: 'post' | 'story'
 ): Promise<PostResult> {
+    const isVideo = imageUrl.endsWith('.mp4') || imageUrl.includes('/video/upload/');
     const containerParams: any = {
-        image_url: imageUrl,
         access_token: accessToken,
     };
+
+    if (isVideo) {
+        containerParams.video_url = imageUrl;
+    } else {
+        containerParams.image_url = imageUrl;
+    }
 
     if (postType === 'story') {
         containerParams.media_type = 'STORIES';

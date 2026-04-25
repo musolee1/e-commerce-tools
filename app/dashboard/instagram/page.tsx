@@ -72,6 +72,7 @@ export default function InstagramPage() {
     } = useDataCache()
 
     const [loading, setLoading] = useState(false)
+    const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [success, setSuccess] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
@@ -123,6 +124,14 @@ export default function InstagramPage() {
     // Watermark canvas ref
     const watermarkCanvasRef = useRef<HTMLCanvasElement>(null)
 
+    // Music Search
+    const [musicSearchQuery, setMusicSearchQuery] = useState('')
+    const [musicSearchResults, setMusicSearchResults] = useState<any[]>([])
+    const [isSearchingMusic, setIsSearchingMusic] = useState(false)
+    const [selectedMusic, setSelectedMusic] = useState<any | null>(null)
+    const [musicPlayingUrl, setMusicPlayingUrl] = useState<string | null>(null)
+    const audioRef = useRef<HTMLAudioElement | null>(null)
+
     // Load scheduled posts
     const loadScheduledPosts = useCallback(async () => {
         setLoadingScheduledPosts(true)
@@ -150,6 +159,35 @@ export default function InstagramPage() {
             console.error('Error cancelling scheduled post:', err)
         }
     }, [])
+
+    // Music Search
+    const searchMusic = async (query: string) => {
+        setMusicSearchQuery(query)
+        if (!query.trim()) {
+            setMusicSearchResults([])
+            return
+        }
+        setIsSearchingMusic(true)
+        try {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5`)
+            const data = await res.json()
+            setMusicSearchResults(data.results || [])
+        } catch (err) {
+            console.error('Music search failed', err)
+        } finally {
+            setIsSearchingMusic(false)
+        }
+    }
+
+    // Audio Player Effect
+    useEffect(() => {
+        if (musicPlayingUrl && audioRef.current) {
+            audioRef.current.src = musicPlayingUrl
+            audioRef.current.play().catch(e => console.error('Audio play blocked:', e))
+        } else if (!musicPlayingUrl && audioRef.current) {
+            audioRef.current.pause()
+        }
+    }, [musicPlayingUrl])
 
     // Close scheduler popover on outside click
     useEffect(() => {
@@ -243,7 +281,7 @@ export default function InstagramPage() {
         const file = e.target.files?.[0]
         if (!file) return
 
-        setLoading(true)
+        setIsUploadingImage(true)
         setError(null)
         try {
             // Compress image to avoid 5MB/bucket limits
@@ -272,7 +310,7 @@ export default function InstagramPage() {
         } catch (err: any) {
             setError('Görsel yüklenirken hata oluştu: ' + (err.message || 'Bilinmeyen hata'))
         } finally {
-            setLoading(false)
+            setIsUploadingImage(false)
             // Reset input
             e.target.value = ''
         }
@@ -407,6 +445,12 @@ export default function InstagramPage() {
             productId: selectedProduct?.id,
             urunGrupId: selectedProduct?.urun_grup_id,
             urunIsmi: selectedProduct?.urun_ismi,
+            music: postType === 'story' && selectedMusic ? {
+                previewUrl: selectedMusic.previewUrl,
+                trackName: selectedMusic.trackName,
+                artistName: selectedMusic.artistName,
+                artworkUrl: selectedMusic.artworkUrl100
+            } : undefined
         })
 
         // Mark as sent locally immediately
@@ -491,6 +535,12 @@ export default function InstagramPage() {
                     urunIsmi: selectedProduct?.urun_ismi,
                     productName: selectedProduct?.urun_ismi || 'Manuel Post',
                     scheduledAt: scheduledAt.toISOString(),
+                    music: postType === 'story' && selectedMusic ? {
+                        previewUrl: selectedMusic.previewUrl,
+                        trackName: selectedMusic.trackName,
+                        artistName: selectedMusic.artistName,
+                        artworkUrl: selectedMusic.artworkUrl100
+                    } : undefined
                 }),
             })
 
@@ -773,6 +823,88 @@ export default function InstagramPage() {
                         </button>
                     </div>
 
+                    {/* ====== MUSIC SEARCH (STORY ONLY) ====== */}
+                    {postType === 'story' && (
+                        <div className="bg-white border border-violet-200 rounded-xl px-5 py-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center">
+                                    <span className="text-violet-600 text-xs">🎵</span>
+                                </div>
+                                <span className="text-sm font-semibold text-slate-800">Müzik Ekle (Apple Music)</span>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={musicSearchQuery}
+                                        onChange={(e) => searchMusic(e.target.value)}
+                                        placeholder="Şarkı veya sanatçı ara..."
+                                        className="w-full px-3 py-2 pl-9 bg-stone-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 text-sm"
+                                    />
+                                    <div className="absolute left-3 top-2.5 text-slate-400">
+                                        {isSearchingMusic ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-sm">🔍</span>}
+                                    </div>
+                                </div>
+
+                                {musicSearchResults.length > 0 && (
+                                    <div className="bg-white border border-slate-100 rounded-lg max-h-48 overflow-y-auto shadow-sm divide-y divide-slate-50">
+                                        {musicSearchResults.map(track => (
+                                            <button
+                                                key={track.trackId}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedMusic(track)
+                                                    setMusicSearchResults([])
+                                                    setMusicSearchQuery('')
+                                                    setMusicPlayingUrl(track.previewUrl)
+                                                }}
+                                                className="w-full flex items-center gap-3 p-2 hover:bg-violet-50 transition-colors text-left"
+                                            >
+                                                <img src={track.artworkUrl100} alt={track.trackName} className="w-10 h-10 rounded-md object-cover" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-semibold text-slate-800 truncate">{track.trackName}</p>
+                                                    <p className="text-[10px] text-slate-500 truncate">{track.artistName}</p>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {selectedMusic && (
+                                    <div className="flex items-center justify-between p-3 bg-violet-50 border border-violet-100 rounded-lg">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                <img src={selectedMusic.artworkUrl100} alt={selectedMusic.trackName} className="w-12 h-12 rounded-md shadow-sm" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMusicPlayingUrl(musicPlayingUrl === selectedMusic.previewUrl ? null : selectedMusic.previewUrl)}
+                                                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-md"
+                                                >
+                                                    <span className="text-white text-xs">{musicPlayingUrl === selectedMusic.previewUrl ? '⏸️' : '▶️'}</span>
+                                                </button>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-violet-900 truncate">{selectedMusic.trackName}</p>
+                                                <p className="text-[10px] text-violet-600 truncate">{selectedMusic.artistName}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedMusic(null)
+                                                setMusicPlayingUrl(null)
+                                            }}
+                                            className="p-1.5 text-violet-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* ====== WATERMARK SETTINGS ====== */}
                     {validImageCount > 0 && (
                         <div className="bg-white border border-slate-200 rounded-xl px-5 py-4">
@@ -933,9 +1065,9 @@ export default function InstagramPage() {
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                             title="Bilgisayardan görsel seç"
                                         />
-                                        <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 hover:bg-violet-100 transition-colors">
-                                            <Plus className="w-3.5 h-3.5" />
-                                            Cihazdan Yükle
+                                        <button type="button" disabled={isUploadingImage} className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full border border-violet-100 hover:bg-violet-100 transition-colors disabled:opacity-50">
+                                            {isUploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                            {isUploadingImage ? 'Yükleniyor...' : 'Cihazdan Yükle'}
                                         </button>
                                     </div>
                                     <div className="flex-1 h-px bg-slate-100"></div>
